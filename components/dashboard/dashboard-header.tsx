@@ -31,7 +31,7 @@ export function DashboardHeader() {
     <header className="border-b bg-background">
       <div className="container mx-auto px-4 py-3 flex justify-between items-center">
         <Link href="/dashboard" className="font-bold text-xl text-primary">
-          Jewelry Auction
+          Pangea Auction Management
         </Link>
         <div className="flex items-center gap-4">
           <div className="hidden md:block text-sm">{user?.username && <span>Welcome, {user.username}</span>}</div>

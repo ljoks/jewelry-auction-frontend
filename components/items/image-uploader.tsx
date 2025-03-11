@@ -9,8 +9,9 @@ import { Card } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
 import { Loader2, Trash2, Upload, X } from "lucide-react"
 import { useDropzone } from "react-dropzone"
+import { Progress } from "@/components/ui/progress"
 
-// Define a type for uploaded images with view URLs
+// Define types for uploaded images and grouped images
 type UploadedImage = {
   s3Key: string
   viewUrl: string
@@ -31,12 +32,16 @@ interface EnhancedImageGroup extends ImageGroup {
   images: (GroupedImage & { viewUrl: string })[]
 }
 
+type ProcessingStatus = "idle" | "uploading" | "processing" | "complete" | "error"
+
 export function ImageUploader({ auctionId }: { auctionId: string }) {
   const [files, setFiles] = useState<File[]>([])
   const [previews, setPreviews] = useState<string[]>([])
   const [uploadedImages, setUploadedImages] = useState<UploadedImage[]>([])
-  const [isUploading, setIsUploading] = useState(false)
-  const [isGrouping, setIsGrouping] = useState(false)
+  const [status, setStatus] = useState<ProcessingStatus>("idle")
+  const [progress, setProgress] = useState(0)
+  const [currentFile, setCurrentFile] = useState(0)
+  const [statusMessage, setStatusMessage] = useState("")
   const { toast } = useToast()
   const router = useRouter()
 
@@ -69,7 +74,7 @@ export function ImageUploader({ auctionId }: { auctionId: string }) {
     setPreviews(newPreviews)
   }
 
-  const uploadFiles = async () => {
+  const uploadAndProcessFiles = async () => {
     if (files.length === 0) {
       toast({
         title: "Error",
@@ -80,66 +85,58 @@ export function ImageUploader({ auctionId }: { auctionId: string }) {
     }
 
     try {
-      setIsUploading(true)
+      // Start uploading
+      setStatus("uploading")
+      setProgress(0)
+      setCurrentFile(0)
+      setStatusMessage("Preparing to upload images...")
+
       const uploadedImagesList: UploadedImage[] = []
 
       // Upload each file
-      for (const file of files) {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i]
+        setCurrentFile(i + 1)
+        setStatusMessage(`Uploading image ${i + 1} of ${files.length}: ${file.name}`)
+
         // Get presigned URL
         const { presignedUrl, s3Key } = await getImageUploadUrl(file.name, file.type)
 
         // Upload to S3
         await uploadImageToS3(presignedUrl, file)
 
-        // Create a view URL - this would typically come from your backend
-        // For now, we'll store the file object to use with object URLs
+        // Create a view URL
         uploadedImagesList.push({
           s3Key,
           viewUrl: URL.createObjectURL(file),
           file,
         })
+
+        // Update progress
+        setProgress(Math.round(((i + 1) / files.length) * 50)) // First 50% is for uploading
       }
 
       setUploadedImages(uploadedImagesList)
+      setStatusMessage("All images uploaded successfully. Starting image processing...")
 
-      toast({
-        title: "Success",
-        description: `${files.length} images uploaded successfully`,
-      })
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to upload images",
-        variant: "destructive",
-      })
-    } finally {
-      setIsUploading(false)
-    }
-  }
-
-  const processImages = async () => {
-    if (uploadedImages.length === 0) {
-      toast({
-        title: "Error",
-        description: "Please upload images first",
-        variant: "destructive",
-      })
-      return
-    }
-
-    try {
-      setIsGrouping(true)
+      // Start processing
+      setStatus("processing")
+      setStatusMessage("Processing images and identifying groups...")
 
       // Group images by marker
-      const groupedImages = await groupImages(uploadedImages.map((img) => ({ s3Key: img.s3Key })))
+      const groupedImages = await groupImages(uploadedImagesList.map((img) => ({ s3Key: img.s3Key })))
+
+      // Update progress
+      setProgress(75)
+      setStatusMessage("Finalizing image groups...")
 
       // Enhance the grouped images with view URLs
-      const enhancedGroups: EnhancedImageGroup = groupedImages.map((group: ImageGroup) => {
+      const enhancedGroups: EnhancedImageGroup[] = groupedImages.map((group: ImageGroup) => {
         return {
           ...group,
           images: group.images.map((img: GroupedImage) => {
             // Find the matching uploaded image to get its view URL
-            const uploadedImage = uploadedImages.find((uploaded) => uploaded.s3Key === img.imageKey)
+            const uploadedImage = uploadedImagesList.find((uploaded) => uploaded.s3Key === img.imageKey)
             return {
               ...img,
               viewUrl: uploadedImage?.viewUrl || "",
@@ -147,28 +144,33 @@ export function ImageUploader({ auctionId }: { auctionId: string }) {
           }),
         }
       })
-      console.log("enhancedGroups")
-      console.log(enhancedGroups)
 
       // Store the enhanced grouped images in session storage
       sessionStorage.setItem("groupedImages", JSON.stringify(enhancedGroups))
       sessionStorage.setItem("auctionId", auctionId)
 
+      // Complete
+      setProgress(100)
+      setStatus("complete")
+      setStatusMessage("Processing complete! Redirecting to grouping page...")
+
       toast({
         title: "Success",
-        description: "Images processed successfully",
+        description: "Images uploaded and processed successfully",
       })
 
-      // Navigate to grouping page
-      router.push(`/auctions/${auctionId}/group`)
+      // Navigate to grouping page after a short delay
+      setTimeout(() => {
+        router.push(`/auctions/${auctionId}/group`)
+      }, 1000)
     } catch (error: any) {
+      setStatus("error")
+      setStatusMessage(`Error: ${error.message || "Failed to process images"}`)
       toast({
         title: "Error",
-        description: error.message || "Failed to process images",
+        description: error.message || "Failed to upload and process images",
         variant: "destructive",
       })
-    } finally {
-      setIsGrouping(false)
     }
   }
 
@@ -201,6 +203,7 @@ export function ImageUploader({ auctionId }: { auctionId: string }) {
                 setFiles([])
                 setPreviews([])
               }}
+              disabled={status !== "idle"}
             >
               <X className="h-4 w-4 mr-2" />
               Clear All
@@ -218,40 +221,55 @@ export function ImageUploader({ auctionId }: { auctionId: string }) {
                     className="object-cover"
                   />
                 </div>
-                <Button
-                  variant="destructive"
-                  size="icon"
-                  className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
-                  onClick={() => removeFile(index)}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+                {status === "idle" && (
+                  <Button
+                    variant="destructive"
+                    size="icon"
+                    className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={() => removeFile(index)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                )}
               </Card>
             ))}
           </div>
 
-          <div className="flex justify-end gap-4 mt-6">
-            <Button variant="outline" onClick={uploadFiles} disabled={isUploading || files.length === 0}>
-              {isUploading ? (
+          {status !== "idle" && (
+            <div className="mt-6 space-y-2">
+              <div className="flex justify-between items-center">
+                <span className="text-sm font-medium">
+                  {status === "uploading" && `Uploading (${currentFile}/${files.length})`}
+                  {status === "processing" && "Processing"}
+                  {status === "complete" && "Complete"}
+                  {status === "error" && "Error"}
+                </span>
+                <span className="text-sm">{progress}%</span>
+              </div>
+              <Progress value={progress} className="h-2" />
+              <p className="text-sm text-muted-foreground">{statusMessage}</p>
+            </div>
+          )}
+
+          <div className="flex justify-end mt-6">
+            <Button
+              onClick={uploadAndProcessFiles}
+              disabled={status !== "idle" || files.length === 0}
+              className="min-w-[180px]"
+            >
+              {status !== "idle" ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Uploading...
+                  {status === "uploading" && "Uploading..."}
+                  {status === "processing" && "Processing..."}
+                  {status === "complete" && "Complete!"}
+                  {status === "error" && "Failed"}
                 </>
               ) : (
                 <>
                   <Upload className="mr-2 h-4 w-4" />
-                  Upload Images
+                  Upload & Process Images
                 </>
-              )}
-            </Button>
-            <Button onClick={processImages} disabled={isGrouping || uploadedImages.length === 0}>
-              {isGrouping ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Processing...
-                </>
-              ) : (
-                "Process Images"
               )}
             </Button>
           </div>
