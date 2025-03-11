@@ -26,6 +26,9 @@ jobs:
         run: npm run build
         env:
           # Add any environment variables needed for the build
+          BUILD_MODE: static
+          # NEXT_PUBLIC_CLOUDFRONT_DOMAIN: ${{ secrets.CLOUDFRONT_DOMAIN }}
+          NEXT_PUBLIC_S3_BUCKET_URL: ${{ secrets.S3_BUCKET_DOMAIN }}
           NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
           NEXT_PUBLIC_COGNITO_USER_POOL_ID: ${{ secrets.NEXT_PUBLIC_COGNITO_USER_POOL_ID }}
           NEXT_PUBLIC_COGNITO_CLIENT_ID: ${{ secrets.NEXT_PUBLIC_COGNITO_CLIENT_ID }}

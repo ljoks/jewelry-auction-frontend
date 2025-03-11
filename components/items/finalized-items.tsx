@@ -11,13 +11,19 @@ import { useToast } from "@/hooks/use-toast"
 import { ArrowLeft, ExternalLink } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 
+type images = {
+  imageId: string,
+  s3Key: string,
+  signedUrl?: string
+}
+
 type FinalizedItem = {
   item_id: string
   auction_id: string
   marker_id: string
   description: string
   metadata: Record<string, string>
-  images: { signedUrl: string }[]
+  images: images[]
   created_at: number
   updated_at: number
 }
@@ -38,8 +44,9 @@ export function FinalizedItems({ auctionId }: { auctionId: string }) {
       const data = await getItems(auctionId)
 
       // The response has changed - data now contains auction and items
-      const finalizedItems = data.items.filter((item: any) => item.description)
+      const finalizedItems = data.items
       setItems(finalizedItems)
+      console.log(finalizedItems)
     } catch (error: any) {
       toast({
         title: "Error",
@@ -113,7 +120,7 @@ export function FinalizedItems({ auctionId }: { auctionId: string }) {
                 {item.images && item.images.length > 0 ? (
                   <div className="aspect-square relative rounded-md overflow-hidden">
                     <Image
-                      src={item.images[0].signedUrl || "/placeholder.svg"}
+                      src={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/${item.images[0].s3Key}`}
                       alt="Jewelry item"
                       fill
                       className="object-cover"
@@ -149,10 +156,10 @@ export function FinalizedItems({ auctionId }: { auctionId: string }) {
               <div className="mt-6">
                 <h3 className="text-lg font-medium mb-2">Additional Images</h3>
                 <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                  {item.images.slice(1).map((image, index) => (
+                  {item.images.slice(1).map((imageKey, index) => (
                     <div key={index} className="aspect-square relative rounded-md overflow-hidden">
                       <Image
-                        src={image.signedUrl || "/placeholder.svg"}
+                        src={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/${imageKey}`}
                         alt={`Additional image ${index + 1}`}
                         fill
                         className="object-cover"

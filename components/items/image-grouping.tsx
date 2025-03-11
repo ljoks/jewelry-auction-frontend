@@ -95,6 +95,8 @@ export function ImageGrouping({ auctionId }: { auctionId: string }) {
     }
 
     loadGroupedImages()
+    console.log("groups")
+    console.log(groups)
   }, [auctionId, toast])
 
   const handleDragEnd = (event: DragEndEvent, groupIndex: number) => {
@@ -133,6 +135,8 @@ export function ImageGrouping({ auctionId }: { auctionId: string }) {
           })),
         })),
       }
+
+      console.log(finalizeData)
 
       await finalizeItems(finalizeData)
 

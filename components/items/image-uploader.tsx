@@ -17,6 +17,20 @@ type UploadedImage = {
   file: File
 }
 
+interface GroupedImage {
+  imageKey: string
+  index: number
+}
+
+interface ImageGroup {
+  marker_id: string
+  images: GroupedImage[]
+}
+
+interface EnhancedImageGroup extends ImageGroup {
+  images: (GroupedImage & { viewUrl: string })[]
+}
+
 export function ImageUploader({ auctionId }: { auctionId: string }) {
   const [files, setFiles] = useState<File[]>([])
   const [previews, setPreviews] = useState<string[]>([])
@@ -120,10 +134,10 @@ export function ImageUploader({ auctionId }: { auctionId: string }) {
       const groupedImages = await groupImages(uploadedImages.map((img) => ({ s3Key: img.s3Key })))
 
       // Enhance the grouped images with view URLs
-      const enhancedGroups = groupedImages.map((group) => {
+      const enhancedGroups: EnhancedImageGroup = groupedImages.map((group: ImageGroup) => {
         return {
           ...group,
-          images: group.images.map((img) => {
+          images: group.images.map((img: GroupedImage) => {
             // Find the matching uploaded image to get its view URL
             const uploadedImage = uploadedImages.find((uploaded) => uploaded.s3Key === img.imageKey)
             return {
@@ -133,6 +147,8 @@ export function ImageUploader({ auctionId }: { auctionId: string }) {
           }),
         }
       })
+      console.log("enhancedGroups")
+      console.log(enhancedGroups)
 
       // Store the enhanced grouped images in session storage
       sessionStorage.setItem("groupedImages", JSON.stringify(enhancedGroups))
