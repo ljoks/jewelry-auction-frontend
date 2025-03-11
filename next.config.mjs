@@ -1,6 +1,12 @@
+let userConfig = undefined
+try {
+  userConfig = await import('./v0-user-next.config')
+} catch (e) {
+  // ignore error
+}
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: process.env.BUILD_MODE === 'static' ? 'export' : undefined,
   eslint: {
     ignoreDuringBuilds: true,
   },
@@ -8,25 +14,35 @@ const nextConfig = {
     ignoreBuildErrors: true,
   },
   images: {
-    unoptimized: process.env.BUILD_MODE === 'static',
-    domains: [
-      'placeholder.svg',
-      // process.env.NEXT_PUBLIC_CLOUDFRONT_DOMAIN,
-      process.env.NEXT_PUBLIC_S3_BUCKET_URL,
-      'localhost',
-    ].filter(Boolean),
+    unoptimized: true,
   },
-  // Disable server-side features when building for static export
   experimental: {
-    appDir: true,
-    ...(process.env.BUILD_MODE === 'static' 
-      ? {
-          webpackBuildWorker: true,
-          parallelServerBuildTraces: true,
-          parallelServerCompiles: true,
-        } 
-      : {}),
+    webpackBuildWorker: true,
+    parallelServerBuildTraces: true,
+    parallelServerCompiles: true,
   },
-};
+}
 
-export default nextConfig;
+mergeConfig(nextConfig, userConfig)
+
+function mergeConfig(nextConfig, userConfig) {
+  if (!userConfig) {
+    return
+  }
+
+  for (const key in userConfig) {
+    if (
+      typeof nextConfig[key] === 'object' &&
+      !Array.isArray(nextConfig[key])
+    ) {
+      nextConfig[key] = {
+        ...nextConfig[key],
+        ...userConfig[key],
+      }
+    } else {
+      nextConfig[key] = userConfig[key]
+    }
+  }
+}
+
+export default nextConfig
