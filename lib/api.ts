@@ -111,14 +111,32 @@ export async function exportAuctionCsv(auctionId: string) {
 }
 
 // Items API
-export async function getItems(auctionId?: string) {
-  if (auctionId) {
-    // Use the new endpoint for getting items by auction ID
-    return fetchWithAuth(`/auctions/${auctionId}/items`)
-  } else {
-    // Fallback to general items endpoint if no auction ID provided
-    return fetchWithAuth("/items")
+export async function getItems(options?: {
+  auctionId?: string
+  sortBy?: string
+  sortOrder?: "asc" | "desc"
+}) {
+  let url = "/items"
+  const queryParams = new URLSearchParams()
+
+  if (options) {
+    if (options.auctionId) {
+      queryParams.append("auctionId", options.auctionId)
+    }
+    if (options.sortBy) {
+      queryParams.append("sortBy", options.sortBy)
+    }
+    if (options.sortOrder) {
+      queryParams.append("sortOrder", options.sortOrder)
+    }
   }
+
+  const queryString = queryParams.toString()
+  if (queryString) {
+    url += `?${queryString}`
+  }
+
+  return fetchWithAuth(url)
 }
 
 export async function getItem(itemId: string) {
@@ -126,10 +144,10 @@ export async function getItem(itemId: string) {
 }
 
 export async function createItem(data: {
-  auction_id: string
   marker_id?: string | null
   item_title: string
   description?: string
+  price?: number
 }) {
   // Generate a unique item_id
   const item_id = `item-${uuidv4()}`
@@ -142,10 +160,10 @@ export async function createItem(data: {
     method: "POST",
     body: JSON.stringify({
       item_id,
-      auction_id: data.auction_id,
       marker_id: data.marker_id || null,
       item_title: data.item_title,
       description: data.description || "",
+      price: data.price || 0,
       created_by: username,
     }),
   })
@@ -172,12 +190,14 @@ export async function deleteItem(itemId: string) {
 
 // Images API
 export async function getImageUploadUrl(fileName: string, fileType: string) {
-  return fetchWithAuth("/images/getPresignedUrl", {
+  const response = await fetchWithAuth("/images/getPresignedUrl", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ fileName, fileType }),
   })
 
+  const { presignedUrl, s3Key } = response
+  return { presignedUrl, s3Key }
 }
 
 export async function uploadImageToS3(presignedUrl: string, file: File) {
@@ -206,7 +226,7 @@ export async function groupImages(images: Array<{ s3Key: string }>) {
 
 // Finalize Items API
 export async function finalizeItems(data: {
-  auction_id: string
+  auction_id?: string
   groups: Array<{
     marker_id: string
     images: Array<{ index: number; imageKey: string }>
@@ -215,6 +235,14 @@ export async function finalizeItems(data: {
   return fetchWithAuth("/finalizeItems", {
     method: "POST",
     body: JSON.stringify(data),
+  })
+}
+
+// New function to associate items with an auction
+export async function addItemsToAuction(auctionId: string, itemIds: string[]) {
+  return fetchWithAuth(`/auctions/${auctionId}/items`, {
+    method: "POST",
+    body: JSON.stringify({ item_ids: itemIds }),
   })
 }
 

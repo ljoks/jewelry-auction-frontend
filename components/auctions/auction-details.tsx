@@ -1,13 +1,14 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 import { getAuction, updateAuction } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/hooks/use-toast"
-import { Edit, Loader2, Save, X } from "lucide-react"
+import { Edit, Loader2, Save, X, Plus } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 
 type Auction = {
@@ -29,6 +30,7 @@ export function AuctionDetails({ auctionId }: { auctionId: string }) {
   const [editedStartDate, setEditedStartDate] = useState("")
   const [editedEndDate, setEditedEndDate] = useState("")
   const { toast } = useToast()
+  const router = useRouter()
 
   useEffect(() => {
     fetchAuction()
@@ -86,6 +88,12 @@ export function AuctionDetails({ auctionId }: { auctionId: string }) {
     } finally {
       setIsSaving(false)
     }
+  }
+
+  const navigateToInventory = () => {
+    // Store the auction ID in session storage to use it later
+    sessionStorage.setItem("selectedAuctionId", auctionId)
+    router.push("/inventory")
   }
 
   if (isLoading) {
@@ -166,9 +174,15 @@ export function AuctionDetails({ auctionId }: { auctionId: string }) {
           <div>
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-2xl font-bold">{auction.name}</h2>
-              <Button variant="outline" size="icon" onClick={() => setIsEditing(true)}>
-                <Edit className="h-4 w-4" />
-              </Button>
+              <div className="flex gap-2">
+                <Button variant="outline" size="icon" onClick={() => setIsEditing(true)}>
+                  <Edit className="h-4 w-4" />
+                </Button>
+                <Button variant="outline" onClick={navigateToInventory}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Items
+                </Button>
+              </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>

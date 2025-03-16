@@ -34,7 +34,7 @@ interface EnhancedImageGroup extends ImageGroup {
 
 type ProcessingStatus = "idle" | "uploading" | "processing" | "complete" | "error"
 
-export function ImageUploader({ auctionId }: { auctionId: string }) {
+export function ImageUploader({ auctionId }: { auctionId?: string }) {
   const [files, setFiles] = useState<File[]>([])
   const [previews, setPreviews] = useState<string[]>([])
   const [uploadedImages, setUploadedImages] = useState<UploadedImage[]>([])
@@ -147,7 +147,11 @@ export function ImageUploader({ auctionId }: { auctionId: string }) {
 
       // Store the enhanced grouped images in session storage
       sessionStorage.setItem("groupedImages", JSON.stringify(enhancedGroups))
-      sessionStorage.setItem("auctionId", auctionId)
+
+      // Only store auctionId if it exists
+      if (auctionId) {
+        sessionStorage.setItem("auctionId", auctionId)
+      }
 
       // Complete
       setProgress(100)
@@ -161,7 +165,7 @@ export function ImageUploader({ auctionId }: { auctionId: string }) {
 
       // Navigate to grouping page after a short delay
       setTimeout(() => {
-        router.push(`/auctions/${auctionId}/group`)
+        router.push(auctionId ? `/auctions/${auctionId}/group` : "/inventory/group")
       }, 1000)
     } catch (error: any) {
       setStatus("error")

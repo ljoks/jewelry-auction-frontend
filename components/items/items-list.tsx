@@ -27,11 +27,14 @@ type Item = {
   marker_id: string | null
   item_title: string
   description?: string
+  price: number
   created_by: string
   created_at: string
   updated_at: string
+  primaryImage?: string
   images?: Array<{
     image_id: string
+    s3Key: string
     viewUrl?: string
     signedUrl?: string
   }>
@@ -46,14 +49,15 @@ export function ItemsList({ auctionId }: { auctionId: string }) {
     fetchItems()
   }, [auctionId])
 
-  // Update the useEffect to handle new data structure and image URLs
   const fetchItems = async () => {
     try {
       setIsLoading(true)
-      const data = await getItems(auctionId)
+      const data = await getItems({ auctionId })
 
       // The response format has changed - data contains auction and items
-      if (data && data.items) {
+      if (Array.isArray(data)) {
+        setItems(data)
+      } else if (data && data.items) {
         setItems(data.items)
       } else {
         setItems([])
@@ -112,22 +116,21 @@ export function ItemsList({ auctionId }: { auctionId: string }) {
       <Card className="text-center p-8">
         <p className="text-muted-foreground mb-4">No items found</p>
         <Button asChild>
-          <Link href={`/auctions/${auctionId}/upload`}>Upload Jewelry Images</Link>
+          <Link href="/inventory">Add Items from Inventory</Link>
         </Button>
       </Card>
     )
   }
 
-  // Update the render logic to display images with signedUrl
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
       {items.map((item) => (
         <Card key={item.item_id} className="overflow-hidden">
           <div className="aspect-square relative bg-muted">
-            {item.images && item.images.length > 0 && item.images[0].signedUrl ? (
+            {item.primaryImage ? (
               <Image
-                src={item.images[0].signedUrl || "/placeholder.svg"}
-                alt={item.marker_id || "Jewelry item"}
+                src={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/${item.primaryImage}`}
+                alt={item.item_title || "Jewelry item"}
                 fill
                 className="object-cover"
               />
@@ -136,12 +139,17 @@ export function ItemsList({ auctionId }: { auctionId: string }) {
             )}
           </div>
           <CardContent className="p-4">
-            <p className="font-medium truncate">{item.marker_id || `Item ${item.item_id.slice(0, 8)}`}</p>
-            <p className="text-sm text-muted-foreground">
-            {(item.description?.length ?? 0) > 50
-              ? `${item.description?.substring(0, 50)}...`
-              : item.description || 'No description'}
-            </p>
+            <div className="flex justify-between items-start gap-2">
+              <div className="min-w-0 flex-1">
+                <p className="font-medium truncate">
+                  {item.item_title || item.marker_id || `Item ${item.item_id.slice(0, 8)}`}
+                </p>
+                <p className="text-sm text-muted-foreground truncate">
+                  {item.description?.substring(0, 50) || "No description"}
+                </p>
+              </div>
+              <p className="font-semibold text-primary whitespace-nowrap">${item.price?.toFixed(2) || "0.00"}</p>
+            </div>
           </CardContent>
           <CardFooter className="p-4 pt-0 flex justify-between">
             <Button asChild variant="outline" size="sm">

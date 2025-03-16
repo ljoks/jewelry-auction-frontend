@@ -97,7 +97,7 @@ function DragOverlayImage({ image }: { image: { viewUrl?: string } | null }) {
   )
 }
 
-export function ImageGrouping({ auctionId }: { auctionId: string }) {
+export function ImageGrouping({ auctionId }: { auctionId?: string }) {
   const [groups, setGroups] = useState<ImageGroup[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isFinalizing, setIsFinalizing] = useState(false)
@@ -125,10 +125,19 @@ export function ImageGrouping({ auctionId }: { auctionId: string }) {
       const storedGroups = sessionStorage.getItem("groupedImages")
       const storedAuctionId = sessionStorage.getItem("auctionId")
 
-      if (storedGroups && storedAuctionId === auctionId) {
+      if (storedGroups) {
         try {
           const parsedGroups = JSON.parse(storedGroups)
           setGroups(parsedGroups)
+
+          // If we have an auctionId prop, check if it matches the stored one
+          if (auctionId && storedAuctionId !== auctionId) {
+            toast({
+              title: "Warning",
+              description: "The loaded groups are from a different auction",
+              variant: "destructive",
+            })
+          }
         } catch (error) {
           console.error("Failed to parse grouped images:", error)
           toast({
@@ -234,7 +243,7 @@ export function ImageGrouping({ auctionId }: { auctionId: string }) {
 
       // Prepare data for API - strip out viewUrl as it's not needed by the backend
       const finalizeData = {
-        auction_id: auctionId,
+        auction_id: auctionId, // This can be undefined now
         groups: groups.map((group) => ({
           marker_id: group.marker_id,
           images: group.images.map((img) => ({
@@ -257,7 +266,7 @@ export function ImageGrouping({ auctionId }: { auctionId: string }) {
       sessionStorage.removeItem("auctionId")
 
       setFinalizeProgress(90)
-      setFinalizeStatus("Redirecting to finalized items page...")
+      setFinalizeStatus("Redirecting to inventory page...")
 
       toast({
         title: "Success",
@@ -268,7 +277,7 @@ export function ImageGrouping({ auctionId }: { auctionId: string }) {
 
       // Add a small delay before redirecting for better UX
       setTimeout(() => {
-        router.push(`/auctions/${auctionId}/finalize`)
+        router.push(auctionId ? `/auctions/${auctionId}/finalize` : "/inventory")
       }, 500)
     } catch (error: any) {
       setFinalizeStatus(`Error: ${error.message || "Failed to finalize items"}`)

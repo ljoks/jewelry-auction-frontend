@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/hooks/use-toast"
 import { Loader2, Plus } from "lucide-react"
+import { Checkbox } from "@/components/ui/checkbox"
 
 export function CreateAuctionButton() {
   const [open, setOpen] = useState(false)
@@ -26,6 +27,7 @@ export function CreateAuctionButton() {
   const [startDate, setStartDate] = useState("")
   const [endDate, setEndDate] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const [addItemsAfterCreate, setAddItemsAfterCreate] = useState(true)
   const { toast } = useToast()
   const router = useRouter()
 
@@ -55,8 +57,15 @@ export function CreateAuctionButton() {
       })
 
       setOpen(false)
-      router.refresh()
-      router.push(`/auctions/${response.auction_id}`)
+
+      if (addItemsAfterCreate) {
+        // Store the auction ID in session storage to use it later
+        sessionStorage.setItem("selectedAuctionId", response.auction_id)
+        router.push("/inventory")
+      } else {
+        router.refresh()
+        router.push(`/auctions/${response.auction_id}`)
+      }
     } catch (error: any) {
       toast({
         title: "Error",
@@ -108,6 +117,14 @@ export function CreateAuctionButton() {
                 disabled={isLoading}
                 required
               />
+            </div>
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="addItems"
+                checked={addItemsAfterCreate}
+                onCheckedChange={(checked) => setAddItemsAfterCreate(!!checked)}
+              />
+              <Label htmlFor="addItems">Add items from inventory after creating</Label>
             </div>
           </div>
           <DialogFooter>
