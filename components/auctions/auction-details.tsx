@@ -2,14 +2,16 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
+import Link from "next/link"
 import { getAuction, updateAuction } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/hooks/use-toast"
-import { Edit, Loader2, Save, X, Plus } from "lucide-react"
+import { Edit, Loader2, Save, X, Plus, ExternalLink } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
+import { ExportCatalog } from "./export-catalog"
 
 type Auction = {
   auction_id: string
@@ -178,6 +180,7 @@ export function AuctionDetails({ auctionId }: { auctionId: string }) {
                 <Button variant="outline" size="icon" onClick={() => setIsEditing(true)}>
                   <Edit className="h-4 w-4" />
                 </Button>
+                <ExportCatalog auctionId={auctionId} />
                 <Button variant="outline" onClick={navigateToInventory}>
                   <Plus className="h-4 w-4 mr-2" />
                   Add Items
@@ -201,6 +204,14 @@ export function AuctionDetails({ auctionId }: { auctionId: string }) {
                 <p className="text-sm text-muted-foreground">Created At</p>
                 <p className="font-medium">{new Date(auction.created_at).toLocaleString()}</p>
               </div>
+            </div>
+            <div className="mt-4 pt-4 border-t">
+              <Button asChild variant="link" className="px-0">
+                <Link href={`/auctions/${auctionId}/export`}>
+                  <ExternalLink className="h-4 w-4 mr-2" />
+                  Advanced Export Options
+                </Link>
+              </Button>
             </div>
           </div>
         )}

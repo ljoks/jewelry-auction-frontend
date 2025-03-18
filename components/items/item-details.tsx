@@ -9,13 +9,19 @@ import { Skeleton } from "@/components/ui/skeleton"
 
 type Item = {
   item_id: string
-  auction_id: string
+  auction_id?: string
   marker_id: string
+  title: string
   description: string
   metadata: Record<string, string>
   images: string[]
   created_at: number
   updated_at: number
+  value_estimate?: {
+    min_value: number
+    max_value: number
+    currency: string
+  }
 }
 
 export function ItemDetails({ itemId }: { itemId: string }) {
@@ -71,7 +77,7 @@ export function ItemDetails({ itemId }: { itemId: string }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Item: {item.marker_id}</CardTitle>
+        <CardTitle>{item.title || `Item: ${item.marker_id}`}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -80,7 +86,7 @@ export function ItemDetails({ itemId }: { itemId: string }) {
               <div className="aspect-square relative rounded-md overflow-hidden">
                 <Image
                   src={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/${item.images[0]}`}
-                  alt="Primary item image"
+                  alt={item.title || "Primary item image"}
                   fill
                   className="object-cover"
                 />
@@ -92,6 +98,15 @@ export function ItemDetails({ itemId }: { itemId: string }) {
             )}
           </div>
           <div>
+            {item.value_estimate && (
+              <div className="mb-4">
+                <h3 className="text-lg font-medium mb-2">Value Estimate</h3>
+                <p className="font-medium text-primary">
+                  {item.value_estimate.currency} {item.value_estimate.min_value} - {item.value_estimate.max_value}
+                </p>
+              </div>
+            )}
+
             <h3 className="text-lg font-medium mb-2">Description</h3>
             <p className="text-muted-foreground whitespace-pre-line">{item.description}</p>
 

@@ -246,3 +246,14 @@ export async function addItemsToAuction(auctionId: string, itemIds: string[]) {
   })
 }
 
+// Export catalog to specific platform
+export async function exportCatalog(auctionId: string, platform: string) {
+  return fetchWithAuth("/export/catalog", {
+    method: "POST",
+    body: JSON.stringify({
+      auction_id: auctionId,
+      platform: platform,
+    }),
+  })
+}
+

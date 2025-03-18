@@ -36,20 +36,20 @@ import { Label } from "@/components/ui/label"
 
 type Item = {
   item_id: string
-  marker_id: string | null
-  item_title: string
+  marker_id: string
+  title: string
   description?: string
-  price: number
-  created_by: string
-  created_at: string
-  updated_at: string
+  price?: number
+  created_by?: string
+  created_at: number
+  updated_at: number
   primaryImage?: string
-  images?: Array<{
-    image_id: string
-    s3Key: string
-    viewUrl?: string
-    signedUrl?: string
-  }>
+  images?: string[]
+  value_estimate?: {
+    min_value: number
+    max_value: number
+    currency: string
+  }
 }
 
 type SortOption = {
@@ -100,9 +100,9 @@ export function InventoryList() {
       case "date-asc":
         return { field: "created_at", order: "asc" }
       case "title-asc":
-        return { field: "item_title", order: "asc" }
+        return { field: "title", order: "asc" }
       case "title-desc":
-        return { field: "item_title", order: "desc" }
+        return { field: "title", order: "desc" }
       default:
         return { field: "price", order: "desc" }
     }
@@ -355,10 +355,10 @@ export function InventoryList() {
             className={`overflow-hidden ${selectedItems.has(item.item_id) ? "ring-2 ring-primary" : ""}`}
           >
             <div className="aspect-square relative bg-muted">
-              {item.primaryImage ? (
+              {item.primaryImage || (item.images && item.images.length > 0) ? (
                 <Image
-                  src={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/${item.primaryImage}`}
-                  alt={item.item_title || "Jewelry item"}
+                  src={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/${item.primaryImage || item.images?.[0]}`}
+                  alt={item.title || "Jewelry item"}
                   fill
                   className="object-cover"
                 />
@@ -376,14 +376,18 @@ export function InventoryList() {
             <CardContent className="p-4">
               <div className="flex justify-between items-start gap-2">
                 <div className="min-w-0 flex-1">
-                  <p className="font-medium truncate">
-                    {item.item_title || item.marker_id || `Item ${item.item_id.slice(0, 8)}`}
-                  </p>
+                  <p className="font-medium truncate">{item.title || `Item ${item.marker_id}`}</p>
                   <p className="text-sm text-muted-foreground truncate">
                     {item.description?.substring(0, 50) || "No description"}
                   </p>
                 </div>
-                <p className="font-semibold text-primary whitespace-nowrap">${item.price?.toFixed(2) || "0.00"}</p>
+                <p className="font-semibold text-primary whitespace-nowrap">
+                  {item.value_estimate
+                    ? `${item.value_estimate.currency} ${item.value_estimate.min_value}-${item.value_estimate.max_value}`
+                    : item.price
+                      ? `$${item.price.toFixed(2)}`
+                      : ""}
+                </p>
               </div>
             </CardContent>
             <CardFooter className="p-4 pt-0 flex justify-between">

@@ -4,7 +4,7 @@ import { DashboardHeader } from "@/components/dashboard/dashboard-header"
 import { AuctionDetails } from "@/components/auctions/auction-details"
 import { ItemsList } from "@/components/items/items-list"
 import { UploadItemsButton } from "@/components/items/upload-items-button"
-import { ExportCsvButton } from "@/components/auctions/export-csv-button"
+import { ExportCatalog } from "@/components/auctions/export-catalog"
 
 export default async function AuctionDetailPage({
   params,
@@ -13,7 +13,6 @@ export default async function AuctionDetailPage({
 }) {
   const cookieStore = await cookies()
   const token = cookieStore.get("auth_token")
-  const { id } = await params
 
   if (!token) {
     redirect("/")
@@ -27,11 +26,11 @@ export default async function AuctionDetailPage({
         <div className="flex justify-between items-center mt-8 mb-4">
           <h2 className="text-2xl font-bold">Jewelry Items</h2>
           <div className="flex gap-4">
-            <UploadItemsButton auctionId={id} />
-            <ExportCsvButton auctionId={id} />
+            <UploadItemsButton auctionId={params.id} />
+            <ExportCatalog auctionId={params.id} />
           </div>
         </div>
-        <ItemsList auctionId={id} />
+        <ItemsList auctionId={params.id} />
       </div>
     </main>
   )

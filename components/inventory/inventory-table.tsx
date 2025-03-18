@@ -49,18 +49,24 @@ import { cn } from "@/lib/utils"
 
 type Item = {
   item_id: string
-  marker_id: string | null
-  item_title: string
+  marker_id: string
+  title: string
   description?: string
-  price: number
-  created_by: string
-  created_at: string
-  updated_at: string
+  price?: number
+  created_by?: string
+  created_at: number
+  updated_at: number
   primaryImage?: string
+  images?: string[]
   jewelry_type?: string
   material?: string
   size?: string
   weight?: number
+  value_estimate?: {
+    min_value: number
+    max_value: number
+    currency: string
+  }
   [key: string]: any // Allow for dynamic properties
 }
 
@@ -119,10 +125,10 @@ export function InventoryTable() {
         accessorKey: "primaryImage",
         cell: (item) => (
           <div className="relative h-12 w-12 rounded-md overflow-hidden">
-            {item.primaryImage ? (
+            {item.primaryImage || (item.images && item.images.length > 0) ? (
               <Image
-                src={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/${item.primaryImage}`}
-                alt={item.item_title || "Jewelry item"}
+                src={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/${item.primaryImage || item.images?.[0]}`}
+                alt={item.title || "Jewelry item"}
                 fill
                 className="object-cover"
               />
@@ -136,26 +142,32 @@ export function InventoryTable() {
         sortable: false,
       },
       {
-        id: "item_title",
+        id: "title",
         header: "Title",
-        accessorKey: "item_title",
-        cell: (item) => (
-          <div className="font-medium">{item.item_title || item.marker_id || `Item ${item.item_id.slice(0, 8)}`}</div>
-        ),
+        accessorKey: "title",
+        cell: (item) => <div className="font-medium">{item.title || `Item ${item.marker_id}`}</div>,
         sortable: true,
       },
       {
-        id: "price",
-        header: "Price",
-        accessorKey: "price",
-        cell: (item) => <div className="font-medium">${item.price?.toFixed(2) || "0.00"}</div>,
+        id: "value",
+        header: "Value",
+        accessorKey: "value_estimate",
+        cell: (item) => (
+          <div className="font-medium">
+            {item.value_estimate
+              ? `${item.value_estimate.currency} ${item.value_estimate.min_value}-${item.value_estimate.max_value}`
+              : item.price
+                ? `$${item.price.toFixed(2)}`
+                : ""}
+          </div>
+        ),
         sortable: true,
       },
       {
         id: "created_at",
         header: "Date Added",
         accessorKey: "created_at",
-        cell: (item) => <div>{new Date(item.created_at).toLocaleDateString()}</div>,
+        cell: (item) => <div>{new Date(item.created_at * 1000).toLocaleDateString()}</div>,
         sortable: true,
       },
     ]
@@ -200,6 +212,8 @@ export function InventoryTable() {
           "updated_at",
           "images",
           "primaryImage",
+          "title",
+          "value_estimate",
         ].includes(key)
 
         if (!isAlreadyIncluded && !isSkippedProperty && typeof firstItem[key] !== "object") {
@@ -646,7 +660,6 @@ export function InventoryTable() {
               <PaginationItem>
                 <PaginationPrevious
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={page === 1}
                   className={page === 1 ? "pointer-events-none opacity-50" : ""}
                 />
               </PaginationItem>
@@ -687,7 +700,6 @@ export function InventoryTable() {
               <PaginationItem>
                 <PaginationNext
                   onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={page === totalPages}
                   className={page === totalPages ? "pointer-events-none opacity-50" : ""}
                 />
               </PaginationItem>

@@ -11,21 +11,21 @@ import { useToast } from "@/hooks/use-toast"
 import { ArrowLeft, ExternalLink } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 
-type images = {
-  imageId: string,
-  s3Key: string,
-  signedUrl?: string
-}
-
 type FinalizedItem = {
   item_id: string
-  auction_id: string
+  auction_id?: string
   marker_id: string
+  title: string
   description: string
   metadata: Record<string, string>
-  images: images[]
+  images: string[]
   created_at: number
   updated_at: number
+  value_estimate?: {
+    min_value: number
+    max_value: number
+    currency: string
+  }
 }
 
 export function FinalizedItems({ auctionId }: { auctionId: string }) {
@@ -44,9 +44,8 @@ export function FinalizedItems({ auctionId }: { auctionId: string }) {
       const data = await getItems(auctionId)
 
       // The response has changed - data now contains auction and items
-      const finalizedItems = data.items
+      const finalizedItems = data.items.filter((item: any) => item.description)
       setItems(finalizedItems)
-      console.log(finalizedItems)
     } catch (error: any) {
       toast({
         title: "Error",
@@ -112,7 +111,7 @@ export function FinalizedItems({ auctionId }: { auctionId: string }) {
       {items.map((item) => (
         <Card key={item.item_id}>
           <CardHeader>
-            <CardTitle>Item {item.marker_id}</CardTitle>
+            <CardTitle>{item.title || `Item ${item.marker_id}`}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -120,8 +119,8 @@ export function FinalizedItems({ auctionId }: { auctionId: string }) {
                 {item.images && item.images.length > 0 ? (
                   <div className="aspect-square relative rounded-md overflow-hidden">
                     <Image
-                      src={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/${item.images[0].s3Key}`}
-                      alt="Jewelry item"
+                      src={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/${item.images[0]}`}
+                      alt={item.title || "Jewelry item"}
                       fill
                       className="object-cover"
                     />
@@ -133,6 +132,15 @@ export function FinalizedItems({ auctionId }: { auctionId: string }) {
                 )}
               </div>
               <div className="md:col-span-2">
+                {item.value_estimate && (
+                  <div className="mb-4">
+                    <h3 className="text-lg font-medium mb-2">Value Estimate</h3>
+                    <p className="font-medium text-primary">
+                      {item.value_estimate.currency} {item.value_estimate.min_value} - {item.value_estimate.max_value}
+                    </p>
+                  </div>
+                )}
+
                 <h3 className="text-lg font-medium mb-2">Description</h3>
                 <p className="text-muted-foreground whitespace-pre-line">{item.description}</p>
 
