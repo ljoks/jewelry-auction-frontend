@@ -235,11 +235,17 @@ export function ImageGrouping({ auctionId }: { auctionId?: string }) {
     }
   }
 
+  // Update the handleFinalize function in the ImageGrouping component
+
   const handleFinalize = async () => {
     try {
       setIsFinalizing(true)
       setFinalizeProgress(10)
       setFinalizeStatus("Preparing data for finalization...")
+
+      // Get metadata from session storage
+      const storedMetadata = sessionStorage.getItem("itemMetadata")
+      const metadata = storedMetadata ? JSON.parse(storedMetadata) : null
 
       // Prepare data for API - strip out viewUrl as it's not needed by the backend
       const finalizeData = {
@@ -251,6 +257,7 @@ export function ImageGrouping({ auctionId }: { auctionId?: string }) {
             imageKey: img.imageKey,
           })),
         })),
+        metadata: metadata, // Include metadata in the finalize request
       }
 
       setFinalizeProgress(30)
@@ -264,6 +271,7 @@ export function ImageGrouping({ auctionId }: { auctionId?: string }) {
       // Clear session storage
       sessionStorage.removeItem("groupedImages")
       sessionStorage.removeItem("auctionId")
+      sessionStorage.removeItem("itemMetadata")
 
       setFinalizeProgress(90)
       setFinalizeStatus("Redirecting to inventory page...")

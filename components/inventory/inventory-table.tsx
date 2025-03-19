@@ -142,6 +142,13 @@ export function InventoryTable() {
         sortable: false,
       },
       {
+        id: "item_id",
+        header: "ID",
+        accessorKey: "item_id",
+        cell: (item) => <div className="font-medium">{item.item_id}</div>,
+        sortable: true,
+      },
+      {
         id: "title",
         header: "Title",
         accessorKey: "title",

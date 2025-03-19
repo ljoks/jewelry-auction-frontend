@@ -217,10 +217,13 @@ export async function uploadImageToS3(presignedUrl: string, file: File) {
 }
 
 // Group Images API
-export async function groupImages(images: Array<{ s3Key: string }>) {
+export async function groupImages(images: Array<{ s3Key: string }>, metadata?: Record<string, any>) {
   return fetchWithAuth("/groupImages", {
     method: "POST",
-    body: JSON.stringify({ images }),
+    body: JSON.stringify({
+      images,
+      metadata,
+    }),
   })
 }
 
@@ -231,6 +234,7 @@ export async function finalizeItems(data: {
     marker_id: string
     images: Array<{ index: number; imageKey: string }>
   }>
+  metadata?: Record<string, any>
 }) {
   return fetchWithAuth("/finalizeItems", {
     method: "POST",

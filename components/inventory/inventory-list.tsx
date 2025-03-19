@@ -376,6 +376,8 @@ export function InventoryList() {
             <CardContent className="p-4">
               <div className="flex justify-between items-start gap-2">
                 <div className="min-w-0 flex-1">
+                  {/* Add the item_id display here */}
+                  <p className="text-xs text-muted-foreground mb-1">ID: {item.item_id}</p>
                   <p className="font-medium truncate">{item.title || `Item ${item.marker_id}`}</p>
                   <p className="text-sm text-muted-foreground truncate">
                     {item.description?.substring(0, 50) || "No description"}
