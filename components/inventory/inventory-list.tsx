@@ -55,11 +55,22 @@ type Item = {
 type SortOption = {
   field: string
   order: "asc" | "desc"
+  customSort?: (a: Item, b: Item) => number
 }
 
 type Auction = {
   auction_id: string
   name: string
+}
+
+// Helper function to extract numeric part from item_id
+const extractNumericId = (itemId: string): number => {
+  // Assuming item_id format is like "item-123"
+  const matches = itemId.match(/\d+/)
+  if (matches && matches.length > 0) {
+    return Number.parseInt(matches[0], 10)
+  }
+  return 0 // Fallback if no number found
 }
 
 export function InventoryList() {
@@ -103,6 +114,18 @@ export function InventoryList() {
         return { field: "title", order: "asc" }
       case "title-desc":
         return { field: "title", order: "desc" }
+      case "id-asc":
+        return {
+          field: "item_id",
+          order: "asc",
+          customSort: (a, b) => extractNumericId(a.item_id) - extractNumericId(b.item_id),
+        }
+      case "id-desc":
+        return {
+          field: "item_id",
+          order: "desc",
+          customSort: (a, b) => extractNumericId(b.item_id) - extractNumericId(a.item_id),
+        }
       default:
         return { field: "price", order: "desc" }
     }
@@ -118,13 +141,21 @@ export function InventoryList() {
         sortOrder: sortParams.order,
       })
 
+      let fetchedItems = []
       if (Array.isArray(data)) {
-        setItems(data)
+        fetchedItems = data
       } else if (data && data.items) {
-        setItems(data.items)
+        fetchedItems = data.items
       } else {
-        setItems([])
+        fetchedItems = []
       }
+
+      // Apply custom sorting if needed (for item_id numeric sorting)
+      if (sortParams.customSort) {
+        fetchedItems = [...fetchedItems].sort(sortParams.customSort)
+      }
+
+      setItems(fetchedItems)
     } catch (error: any) {
       toast({
         title: "Error",
@@ -292,6 +323,8 @@ export function InventoryList() {
               <SelectItem value="date-asc">Date (Oldest)</SelectItem>
               <SelectItem value="title-asc">Title (A-Z)</SelectItem>
               <SelectItem value="title-desc">Title (Z-A)</SelectItem>
+              <SelectItem value="id-asc">ID (Low to High)</SelectItem>
+              <SelectItem value="id-desc">ID (High to Low)</SelectItem>
             </SelectContent>
           </Select>
 
@@ -376,8 +409,8 @@ export function InventoryList() {
             <CardContent className="p-4">
               <div className="flex justify-between items-start gap-2">
                 <div className="min-w-0 flex-1">
-                  {/* Add the item_id display here */}
-                  <p className="text-xs text-muted-foreground mb-1">ID: {item.item_id}</p>
+                  {/* Display numeric ID instead of full item_id */}
+                  <p className="text-xs text-muted-foreground mb-1">ID: {extractNumericId(item.item_id)}</p>
                   <p className="font-medium truncate">{item.title || `Item ${item.marker_id}`}</p>
                   <p className="text-sm text-muted-foreground truncate">
                     {item.description?.substring(0, 50) || "No description"}

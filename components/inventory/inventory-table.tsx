@@ -86,6 +86,17 @@ type ColumnDef = {
   accessorKey: string
   cell?: (item: Item) => React.ReactNode
   sortable?: boolean
+  sortFn?: (a: Item, b: Item, order: "asc" | "desc") => number
+}
+
+// Helper function to extract numeric part from item_id
+const extractNumericId = (itemId: string): number => {
+  // Assuming item_id format is like "item-123"
+  const matches = itemId.match(/\d+/)
+  if (matches && matches.length > 0) {
+    return Number.parseInt(matches[0], 10)
+  }
+  return 0 // Fallback if no number found
 }
 
 export function InventoryTable() {
@@ -145,8 +156,18 @@ export function InventoryTable() {
         id: "item_id",
         header: "ID",
         accessorKey: "item_id",
-        cell: (item) => <div className="font-medium">{item.item_id}</div>,
+        cell: (item) => {
+          // Extract numeric part for display
+          const numericId = extractNumericId(item.item_id)
+          return <div className="font-medium">{numericId || item.item_id}</div>
+        },
         sortable: true,
+        // Custom sort function for item_id
+        sortFn: (a, b, order) => {
+          const numA = extractNumericId(a.item_id)
+          const numB = extractNumericId(b.item_id)
+          return order === "asc" ? numA - numB : numB - numA
+        },
       },
       {
         id: "title",
@@ -443,9 +464,20 @@ export function InventoryTable() {
     }
   }
 
+  // Sort items locally if we have a custom sort function
+  const sortedItems = useMemo(() => {
+    const column = columns.find((col) => col.accessorKey === sortField)
+
+    if (column?.sortFn) {
+      return [...items].sort((a, b) => column.sortFn!(a, b, sortOrder))
+    }
+
+    return items
+  }, [items, sortField, sortOrder, columns])
+
   // Calculate pagination
-  const totalPages = Math.ceil(items.length / pageSize)
-  const paginatedItems = items.slice((page - 1) * pageSize, page * pageSize)
+  const totalPages = Math.ceil(sortedItems.length / pageSize)
+  const paginatedItems = sortedItems.slice((page - 1) * pageSize, page * pageSize)
   const allSelected = paginatedItems.length > 0 && paginatedItems.every((item) => selectedItems.has(item.item_id))
 
   if (isLoading) {
@@ -640,7 +672,8 @@ export function InventoryTable() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <p className="text-sm text-muted-foreground">
-              Showing {(page - 1) * pageSize + 1} to {Math.min(page * pageSize, items.length)} of {items.length} items
+              Showing {(page - 1) * pageSize + 1} to {Math.min(page * pageSize, sortedItems.length)} of{" "}
+              {sortedItems.length} items
             </p>
             <Select
               value={pageSize.toString()}
