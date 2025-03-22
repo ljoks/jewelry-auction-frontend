@@ -1,6 +1,8 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useCallback } from "react"
+
+import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { getImageUploadUrl, uploadImageToS3, groupImages } from "@/lib/api"
@@ -10,7 +12,6 @@ import { useToast } from "@/hooks/use-toast"
 import { Loader2, Trash2, Upload, X } from "lucide-react"
 import { useDropzone } from "react-dropzone"
 import { Progress } from "@/components/ui/progress"
-import { MetadataForm, type MetadataValues } from "./metadata-form"
 
 // Define types for uploaded images and grouped images
 type UploadedImage = {
@@ -43,7 +44,6 @@ export function ImageUploader({ auctionId }: { auctionId?: string }) {
   const [progress, setProgress] = useState(0)
   const [currentFile, setCurrentFile] = useState(0)
   const [statusMessage, setStatusMessage] = useState("")
-  const [metadata, setMetadata] = useState<MetadataValues | null>(null)
   const { toast } = useToast()
   const router = useRouter()
 
@@ -76,10 +76,6 @@ export function ImageUploader({ auctionId }: { auctionId?: string }) {
     setPreviews(newPreviews)
   }
 
-  const handleMetadataChange = useCallback((values: MetadataValues) => {
-    setMetadata(values)
-  }, [])
-
   const uploadAndProcessFiles = async () => {
     if (files.length === 0) {
       toast({
@@ -89,15 +85,6 @@ export function ImageUploader({ auctionId }: { auctionId?: string }) {
       })
       return
     }
-
-    // if (!metadata || !metadata.lotType || !metadata.material) {
-    //   toast({
-    //     title: "Error",
-    //     description: "Please fill in the required metadata fields",
-    //     variant: "destructive",
-    //   })
-    //   return
-    // }
 
     try {
       // Start uploading
@@ -139,10 +126,7 @@ export function ImageUploader({ auctionId }: { auctionId?: string }) {
       setStatusMessage("Processing images and identifying groups...")
 
       // Group images by marker
-      const groupedImages = await groupImages(
-        uploadedImagesList.map((img) => ({ s3Key: img.s3Key })),
-        metadata, // Pass metadata to the groupImages function
-      )
+      const groupedImages = await groupImages(uploadedImagesList.map((img) => ({ s3Key: img.s3Key })))
 
       // Update progress
       setProgress(75)
@@ -165,11 +149,6 @@ export function ImageUploader({ auctionId }: { auctionId?: string }) {
 
       // Store the enhanced grouped images in session storage
       sessionStorage.setItem("groupedImages", JSON.stringify(enhancedGroups))
-
-      // Store metadata in session storage
-      if (metadata) {
-        sessionStorage.setItem("itemMetadata", JSON.stringify(metadata))
-      }
 
       // Only store auctionId if it exists
       if (auctionId) {
@@ -261,13 +240,6 @@ export function ImageUploader({ auctionId }: { auctionId?: string }) {
               </Card>
             ))}
           </div>
-
-          {/* Metadata Form */}
-          {status === "idle" && (
-            <div className="mt-6">
-              <MetadataForm onChange={handleMetadataChange} />
-            </div>
-          )}
 
           {status !== "idle" && (
             <div className="mt-6 space-y-2">

@@ -58,9 +58,19 @@ export async function createAuction(data: {
   // Generate a unique auction_id
   const auction_id = `auction-${uuidv4()}`
 
-  // Get current user information
-  const currentUser = await fetchAuthSession()
-  const username = currentUser.tokens?.idToken?.payload.username || "unknown-user"
+  // Get current user information from the token
+  const token = await getAuthToken()
+  const tokenParts = token.split(".")
+  let username = "unknown-user"
+
+  if (tokenParts.length > 1) {
+    try {
+      const payload = JSON.parse(atob(tokenParts[1]))
+      username = payload.username || "unknown-user"
+    } catch (error) {
+      console.error("Error parsing token:", error)
+    }
+  }
 
   return fetchWithAuth("/auctions", {
     method: "POST",
@@ -172,8 +182,9 @@ export async function createItem(data: {
 export async function updateItem(
   itemId: string,
   data: {
-    item_title?: string
+    title?: string
     description?: string
+    metadata?: Record<string, any>
   },
 ) {
   return fetchWithAuth(`/items/${itemId}`, {
@@ -235,6 +246,7 @@ export async function finalizeItems(data: {
     images: Array<{ index: number; imageKey: string }>
   }>
   metadata?: Record<string, any>
+  created_by?: string
 }) {
   return fetchWithAuth("/finalizeItems", {
     method: "POST",

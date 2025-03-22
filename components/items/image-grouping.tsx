@@ -23,6 +23,8 @@ import { GripVertical, Loader2, Save, MoveHorizontal } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 import Link from "next/link"
 import { Progress } from "@/components/ui/progress"
+import { MetadataForm, type MetadataValues } from "./metadata-form"
+import { useAuth } from "@/components/auth/auth-provider"
 
 type ImageGroup = {
   marker_id: string
@@ -109,6 +111,8 @@ export function ImageGrouping({ auctionId }: { auctionId?: string }) {
   } | null>(null)
   const { toast } = useToast()
   const router = useRouter()
+  const [metadata, setMetadata] = useState<MetadataValues | null>(null)
+  const { user } = useAuth()
 
   // Configure sensors for better drag and drop experience
   const sensors = useSensors(
@@ -235,17 +239,28 @@ export function ImageGrouping({ auctionId }: { auctionId?: string }) {
     }
   }
 
-  // Update the handleFinalize function in the ImageGrouping component
+  const handleMetadataChange = (values: MetadataValues) => {
+    setMetadata(values)
+  }
 
   const handleFinalize = async () => {
     try {
+      // Validate metadata
+      if (!metadata || !metadata.lotType || !metadata.material) {
+        toast({
+          title: "Error",
+          description: "Please fill in the required metadata fields",
+          variant: "destructive",
+        })
+        return
+      }
+
       setIsFinalizing(true)
       setFinalizeProgress(10)
       setFinalizeStatus("Preparing data for finalization...")
 
-      // Get metadata from session storage
-      const storedMetadata = sessionStorage.getItem("itemMetadata")
-      const metadata = storedMetadata ? JSON.parse(storedMetadata) : null
+      // Get the username from the authenticated user
+      const username = user?.username || "unknown-user"
 
       // Prepare data for API - strip out viewUrl as it's not needed by the backend
       const finalizeData = {
@@ -257,7 +272,8 @@ export function ImageGrouping({ auctionId }: { auctionId?: string }) {
             imageKey: img.imageKey,
           })),
         })),
-        metadata: metadata, // Include metadata in the finalize request
+        metadata: metadata, // Include metadata from component state
+        created_by: username, // Add the created_by field with the username
       }
 
       setFinalizeProgress(30)
@@ -271,7 +287,6 @@ export function ImageGrouping({ auctionId }: { auctionId?: string }) {
       // Clear session storage
       sessionStorage.removeItem("groupedImages")
       sessionStorage.removeItem("auctionId")
-      sessionStorage.removeItem("itemMetadata")
 
       setFinalizeProgress(90)
       setFinalizeStatus("Redirecting to inventory page...")
@@ -286,6 +301,7 @@ export function ImageGrouping({ auctionId }: { auctionId?: string }) {
       // Add a small delay before redirecting for better UX
       setTimeout(() => {
         router.push(auctionId ? `/auctions/${auctionId}/finalize` : "/inventory")
+        // router.push(auctionId ? `/auctions/${auctionId}/review` : "/inventory/review") // REDIRECTS TO REVIEW PAGE
       }, 500)
     } catch (error: any) {
       setFinalizeStatus(`Error: ${error.message || "Failed to finalize items"}`)
@@ -350,6 +366,10 @@ export function ImageGrouping({ auctionId }: { auctionId?: string }) {
         Drag and drop to reorder images within each group or move images between groups. When you&apos;re satisfied with
         the arrangement, click &quot;Finalize Items&quot;.
       </p>
+
+      <div className="mb-6">
+        <MetadataForm onChange={handleMetadataChange} />
+      </div>
 
       <DndContext
         sensors={sensors}

@@ -117,7 +117,7 @@ export function ItemDetails({ itemId }: { itemId: string }) {
                   {Object.entries(item.metadata).map(([key, value]) => (
                     <div key={key} className="flex flex-col">
                       <span className="text-sm text-muted-foreground">{key}</span>
-                      <span className="font-medium">{value}</span>
+                      <span className="font-medium">{Array.isArray(value) ? value.join(", ") : value}</span>
                     </div>
                   ))}
                 </div>
