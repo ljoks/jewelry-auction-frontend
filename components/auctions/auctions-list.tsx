@@ -114,7 +114,7 @@ export function AuctionsList() {
             <div className="text-sm text-muted-foreground">
               <p>Start: {new Date(auction.start_date).toLocaleDateString()}</p>
               <p>End: {new Date(auction.end_date).toLocaleDateString()}</p>
-              <p className="mt-1">Created by: {auction.created_by}</p>
+              {/* <p className="mt-1">Created by: {auction.created_by}</p> */}
             </div>
           </CardContent>
           <CardFooter className="flex justify-between">
