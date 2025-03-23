@@ -300,8 +300,7 @@ export function ImageGrouping({ auctionId }: { auctionId?: string }) {
 
       // Add a small delay before redirecting for better UX
       setTimeout(() => {
-        router.push(auctionId ? `/auctions/${auctionId}/finalize` : "/inventory")
-        // router.push(auctionId ? `/auctions/${auctionId}/review` : "/inventory/review") // REDIRECTS TO REVIEW PAGE
+        router.push(auctionId ? `/auctions/${auctionId}/review` : "/inventory")
       }, 500)
     } catch (error: any) {
       setFinalizeStatus(`Error: ${error.message || "Failed to finalize items"}`)

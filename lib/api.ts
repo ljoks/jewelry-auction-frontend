@@ -35,7 +35,7 @@ async function fetchWithAuth(url: string, options: RequestInit = {}) {
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({}))
-    throw new Error(error.message || `API error: ${response.status}`)
+    throw new Error(error.message || error.error || `API error: ${response.status}`)
   }
 
   return response.json()
@@ -227,28 +227,36 @@ export async function uploadImageToS3(presignedUrl: string, file: File) {
   return response
 }
 
-// Group Images API
-export async function groupImages(images: Array<{ s3Key: string }>, metadata?: Record<string, any>) {
-  return fetchWithAuth("/groupImages", {
+// New Two-Step Item Processing API
+export async function stageItems(data: {
+  num_items: number
+  views_per_item: number
+  images: Array<{ s3Key: string; index: number }>
+  metadata?: Record<string, any>
+}) {
+  return fetchWithAuth("/processItems/stage", {
     method: "POST",
-    body: JSON.stringify({
-      images,
-      metadata,
-    }),
+    body: JSON.stringify(data),
   })
 }
 
-// Finalize Items API
-export async function finalizeItems(data: {
-  auction_id?: string
-  groups: Array<{
-    marker_id: string
-    images: Array<{ index: number; imageKey: string }>
+export async function createItems(data: {
+  items: Array<{
+    item_index: number
+    images: string[]
+    title: string
+    description: string
+    value_estimate: {
+      min_value: number
+      max_value: number
+      currency: string
+    }
+    metadata: Record<string, any>
   }>
-  metadata?: Record<string, any>
-  created_by?: string
+  auction_id?: string
+  created_by: string
 }) {
-  return fetchWithAuth("/finalizeItems", {
+  return fetchWithAuth("/processItems/create", {
     method: "POST",
     body: JSON.stringify(data),
   })
@@ -270,6 +278,22 @@ export async function exportCatalog(auctionId: string, platform: string) {
       auction_id: auctionId,
       platform: platform,
     }),
+  })
+}
+
+// Legacy function - can be removed once migration is complete
+export async function finalizeItems(data: any) {
+  return fetchWithAuth("/finalizeItems", {
+    method: "POST",
+    body: JSON.stringify(data),
+  })
+}
+
+// Legacy function - can be removed once migration is complete
+export async function processItems(data: any) {
+  return fetchWithAuth("/processItems", {
+    method: "POST",
+    body: JSON.stringify(data),
   })
 }
 
