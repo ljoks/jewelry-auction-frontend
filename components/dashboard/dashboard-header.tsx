@@ -6,11 +6,11 @@ import { useAuth } from "@/components/auth/auth-provider"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { useToast } from "@/hooks/use-toast"
-import { LogOut, Menu, User, Package } from "lucide-react"
+import { LogOut, Menu, User, Package, Shield } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 export function DashboardHeader() {
-  const { logout, user } = useAuth()
+  const { logout, user, isAdmin } = useAuth()
   const { toast } = useToast()
   const pathname = usePathname()
 
@@ -65,6 +65,19 @@ export function DashboardHeader() {
             >
               Inventory
             </Link>
+            {isAdmin && (
+              <Link
+                href="/admin"
+                className={cn(
+                  "text-sm font-medium hover:text-primary relative py-1 flex items-center",
+                  isActive("/admin") &&
+                    "text-primary after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-primary",
+                )}
+              >
+                <Shield className="h-3.5 w-3.5 mr-1" />
+                Admin
+              </Link>
+            )}
           </nav>
           <div className="hidden md:block text-sm">{user?.username && <span>Welcome, {user.username}</span>}</div>
           <DropdownMenu>
@@ -87,6 +100,14 @@ export function DashboardHeader() {
                   Inventory
                 </Link>
               </DropdownMenuItem>
+              {isAdmin && (
+                <DropdownMenuItem asChild className="md:hidden">
+                  <Link href="/admin">
+                    <Shield className="mr-2 h-4 w-4" />
+                    Admin
+                  </Link>
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem onClick={handleLogout}>
                 <LogOut className="mr-2 h-4 w-4" />
                 <span>Logout</span>

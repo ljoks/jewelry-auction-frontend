@@ -35,7 +35,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Label } from "@/components/ui/label"
 
 type Item = {
-  item_id: string
+  item_id: number
   marker_id: string
   title: string
   description?: string
@@ -66,7 +66,7 @@ type Auction = {
 // Helper function to extract numeric part from item_id
 const extractNumericId = (itemId: string): number => {
   // Assuming item_id format is like "item-123"
-  const matches = itemId.match(/\d+/)
+  const matches = itemId.toString().match(/\d+/)
   if (matches && matches.length > 0) {
     return Number.parseInt(matches[0], 10)
   }
@@ -77,7 +77,7 @@ export function InventoryList() {
   const [items, setItems] = useState<Item[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [sortOption, setSortOption] = useState<string>("price-desc")
-  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set())
+  const [selectedItems, setSelectedItems] = useState<Set<number>>(new Set())
   const [auctions, setAuctions] = useState<Auction[]>([])
   const [selectedAuction, setSelectedAuction] = useState<string>("")
   const [isAddingToAuction, setIsAddingToAuction] = useState(false)
@@ -118,13 +118,13 @@ export function InventoryList() {
         return {
           field: "item_id",
           order: "asc",
-          customSort: (a, b) => extractNumericId(a.item_id) - extractNumericId(b.item_id),
+          customSort: (a, b) => a.item_id - b.item_id,
         }
       case "id-desc":
         return {
           field: "item_id",
           order: "desc",
-          customSort: (a, b) => extractNumericId(b.item_id) - extractNumericId(a.item_id),
+          customSort: (a, b) => b.item_id - a.item_id,
         }
       default:
         return { field: "price", order: "desc" }
@@ -180,7 +180,7 @@ export function InventoryList() {
     }
   }
 
-  const handleDeleteItem = async (itemId: string) => {
+  const handleDeleteItem = async (itemId: number) => {
     try {
       await deleteItem(itemId)
       setItems(items.filter((item) => item.item_id !== itemId))
@@ -203,7 +203,7 @@ export function InventoryList() {
     }
   }
 
-  const handleSelectItem = (itemId: string, isSelected: boolean) => {
+  const handleSelectItem = (itemId: number, isSelected: boolean) => {
     const newSelectedItems = new Set(selectedItems)
     if (isSelected) {
       newSelectedItems.add(itemId)
@@ -234,7 +234,9 @@ export function InventoryList() {
 
     try {
       setIsAddingToAuction(true)
-      await addItemsToAuction(selectedAuction, Array.from(selectedItems))
+      // Convert string IDs back to numbers
+      const itemIds = Array.from(selectedItems).map((id) => id)
+      await addItemsToAuction(selectedAuction, itemIds)
 
       toast({
         title: "Success",
@@ -410,7 +412,7 @@ export function InventoryList() {
               <div className="flex justify-between items-start gap-2">
                 <div className="min-w-0 flex-1">
                   {/* Display numeric ID instead of full item_id */}
-                  <p className="text-xs text-muted-foreground mb-1">ID: {extractNumericId(item.item_id)}</p>
+                  <p className="text-xs text-muted-foreground mb-1">ID: {item.item_id}</p>
                   <p className="font-medium truncate">{item.title || `Item ${item.marker_id}`}</p>
                   <p className="text-sm text-muted-foreground truncate">
                     {item.description?.substring(0, 50) || "No description"}

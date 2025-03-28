@@ -229,6 +229,7 @@ export function ImageUploader({ auctionId }: { auctionId?: string }) {
 
   // Calculate current image index based on capture mode
   const getCurrentImageIndex = () => {
+    // Calculate index based on item-first ordering
     return (currentItem - 1) * viewsPerItem + currentView
   }
 
@@ -322,6 +323,18 @@ export function ImageUploader({ auctionId }: { auctionId?: string }) {
 
     setFiles(newFiles)
     setPreviews(newPreviews)
+
+    // Reset current view/item if we're at the end
+    if (currentItem > Math.ceil(newFiles.length / viewsPerItem)) {
+      setCurrentItem(Math.max(1, Math.ceil(newFiles.length / viewsPerItem)))
+      setCurrentView(0)
+    } else if (currentItem === Math.ceil(newFiles.length / viewsPerItem)) {
+      // If we're on the last item, make sure the view is valid
+      const remainingViewsInLastItem = newFiles.length % viewsPerItem || viewsPerItem
+      if (currentView >= remainingViewsInLastItem) {
+        setCurrentView(Math.max(0, remainingViewsInLastItem - 1))
+      }
+    }
   }
 
   // Move to next view/item
@@ -341,35 +354,27 @@ export function ImageUploader({ auctionId }: { auctionId?: string }) {
 
   // Add this helper function before the processAndUploadImages function
   // This function reorders images by item instead of by view
-  const reorderImagesByItem = (images: UploadedImage[], numItems: number, viewsPerItem: number) => {
-    // Create a new array to hold the reordered images
-    const reorderedImages: Array<{ s3Key: string; index: number }> = []
+  const reorderImagesByItem = (files: File[], numItems: number, viewsPerItem: number) => {
+    const reorderedFiles: File[] = []
 
     // For each item
     for (let itemIndex = 0; itemIndex < numItems; itemIndex++) {
-      // For each view of this item
+      // For each view
       for (let viewIndex = 0; viewIndex < viewsPerItem; viewIndex++) {
-        // Calculate the original index in the flat array
-        // Original order: all view 1s, then all view 2s, etc.
+        // Calculate the original index in the files array
+        // Original order is: view1-item1, view1-item2, view1-item3, view2-item1, etc.
         const originalIndex = viewIndex * numItems + itemIndex
 
-        // Find the image with this original index
-        const image = images.find((img) => img.index === originalIndex)
-
-        if (image) {
-          // Add to reordered array with the new index
-          reorderedImages.push({
-            s3Key: image.s3Key,
-            index: itemIndex * viewsPerItem + viewIndex, // New index: item1 views, then item2 views, etc.
-          })
+        if (originalIndex < files.length) {
+          reorderedFiles.push(files[originalIndex])
         }
       }
     }
 
-    return reorderedImages
+    return reorderedFiles
   }
 
-  // Process and upload images
+  // Update the processAndUploadImages function to use the reordering
   const processAndUploadImages = async () => {
     if (files.length !== totalExpectedImages) {
       toast({
@@ -387,19 +392,26 @@ export function ImageUploader({ auctionId }: { auctionId?: string }) {
       setCurrentFile(0)
       setStatusMessage("Preparing to upload images...")
 
+      // Reorder files by item instead of by view
+      const reorderedFiles = reorderImagesByItem(files, numItems, viewsPerItem)
+
       const uploadedImagesList: UploadedImage[] = []
 
       // Upload each file
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i]
+      for (let i = 0; i < reorderedFiles.length; i++) {
+        const file = reorderedFiles[i]
         setCurrentFile(i + 1)
-        setStatusMessage(`Uploading image ${i + 1} of ${files.length}: ${file.name}`)
+        setStatusMessage(`Uploading image ${i + 1} of ${reorderedFiles.length}: ${file.name}`)
 
         // Get presigned URL
         const { presignedUrl, s3Key } = await getImageUploadUrl(file.name, file.type)
 
         // Upload to S3
         await uploadImageToS3(presignedUrl, file)
+
+        // Calculate the correct item and view indices
+        const itemIndex = Math.floor(i / viewsPerItem)
+        const viewIndex = i % viewsPerItem
 
         // Create a view URL and add to uploaded images
         uploadedImagesList.push({
@@ -410,7 +422,7 @@ export function ImageUploader({ auctionId }: { auctionId?: string }) {
         })
 
         // Update progress
-        setProgress(Math.round(((i + 1) / files.length) * 50)) // First 50% is for uploading
+        setProgress(Math.round(((i + 1) / reorderedFiles.length) * 50)) // First 50% is for uploading
       }
 
       setUploadedImages(uploadedImagesList)
@@ -435,11 +447,14 @@ export function ImageUploader({ auctionId }: { auctionId?: string }) {
         metadata.length = length
       }
 
-      // Stage items with the new API
+      // Stage items with the new API - send images in the correct order
       const response = await stageItems({
         num_items: numItems,
         views_per_item: viewsPerItem,
-        images: reorderImagesByItem(uploadedImagesList, numItems, viewsPerItem),
+        images: uploadedImagesList.map((img) => ({
+          s3Key: img.s3Key,
+          index: img.index,
+        })),
         metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
       })
 
@@ -682,26 +697,44 @@ export function ImageUploader({ auctionId }: { auctionId?: string }) {
                   <h3 className="text-lg font-medium mb-4">
                     Captured Images ({previews.length}/{totalExpectedImages})
                   </h3>
-                  <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                    {previews.map((preview, index) => (
-                      <Card key={index} className="relative overflow-hidden group">
-                        <div className="aspect-square relative">
-                          <Image
-                            src={preview || "/placeholder.svg"}
-                            alt={`Preview ${index + 1}`}
-                            fill
-                            className="object-cover"
-                          />
-                          <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Button variant="destructive" size="icon" onClick={() => removeFile(index)}>
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
+                  <div className="space-y-6">
+                    {Array.from({ length: numItems }).map((_, itemIndex) => (
+                      <div key={itemIndex} className="border rounded-md p-4">
+                        <h4 className="font-medium mb-2">Item {itemIndex + 1}</h4>
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                          {Array.from({ length: viewsPerItem }).map((_, viewIndex) => {
+                            // Calculate the index in the previews array
+                            // For item-first ordering: (itemIndex * viewsPerItem) + viewIndex
+                            const previewIndex = itemIndex * viewsPerItem + viewIndex
+
+                            if (previewIndex < previews.length) {
+                              return (
+                                <Card key={viewIndex} className="relative overflow-hidden group">
+                                  <div className="aspect-square relative">
+                                    <Image
+                                      src={previews[previewIndex] || "/placeholder.svg"}
+                                      alt={`Item ${itemIndex + 1}, View ${viewIndex + 1}`}
+                                      fill
+                                      className="object-cover"
+                                    />
+                                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                      <Button
+                                        variant="destructive"
+                                        size="icon"
+                                        onClick={() => removeFile(previewIndex)}
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    </div>
+                                  </div>
+                                  <div className="p-2 text-xs text-center">{`View ${viewIndex + 1}`}</div>
+                                </Card>
+                              )
+                            }
+                            return null
+                          })}
                         </div>
-                        <div className="p-2 text-xs text-center">
-                          {`Item ${Math.floor(index / viewsPerItem) + 1}, View ${(index % viewsPerItem) + 1}`}
-                        </div>
-                      </Card>
+                      </div>
                     ))}
                   </div>
                 </div>

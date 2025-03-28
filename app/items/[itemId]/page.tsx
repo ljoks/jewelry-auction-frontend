@@ -10,11 +10,13 @@ export default async function ItemDetailPage({
 }) {
   const cookieStore = await cookies()
   const token = cookieStore.get("auth_token")
-  const { itemId } = await params
 
   if (!token) {
     redirect("/")
   }
+
+  // Convert itemId from string to number
+  const itemId = Number.parseInt(params.itemId, 10)
 
   return (
     <main className="min-h-screen bg-gray-50">

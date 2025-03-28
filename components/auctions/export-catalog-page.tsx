@@ -34,7 +34,7 @@ const SUPPORTED_PLATFORMS: Platform[] = [
 ]
 
 type Item = {
-  item_id: string
+  item_id: number
   auction_id: string
   marker_id: string | null
   item_title: string

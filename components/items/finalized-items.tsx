@@ -12,7 +12,7 @@ import { ArrowLeft, ExternalLink } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 
 type FinalizedItem = {
-  item_id: string
+  item_id: number
   auction_id?: string
   marker_id: string
   title: string

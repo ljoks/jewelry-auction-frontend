@@ -48,7 +48,7 @@ import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
 
 type Item = {
-  item_id: string
+  item_id: number
   marker_id: string
   title: string
   description?: string
@@ -102,9 +102,9 @@ const extractNumericId = (itemId: string): number => {
 export function InventoryTable() {
   const [items, setItems] = useState<Item[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const [sortField, setSortField] = useState<string>("price")
+  const [sortField, setSortField] = useState<string>("item_id")
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc")
-  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set())
+  const [selectedItems, setSelectedItems] = useState<Set<number>>(new Set())
   const [auctions, setAuctions] = useState<Auction[]>([])
   const [selectedAuction, setSelectedAuction] = useState<string>("")
   const [isAddingToAuction, setIsAddingToAuction] = useState(false)
@@ -158,14 +158,14 @@ export function InventoryTable() {
         accessorKey: "item_id",
         cell: (item) => {
           // Extract numeric part for display
-          const numericId = extractNumericId(item.item_id)
+          const numericId = item.item_id
           return <div className="font-medium">{numericId || item.item_id}</div>
         },
         sortable: true,
         // Custom sort function for item_id
         sortFn: (a, b, order) => {
-          const numA = extractNumericId(a.item_id)
-          const numB = extractNumericId(b.item_id)
+          const numA = a.item_id
+          const numB = b.item_id
           return order === "asc" ? numA - numB : numB - numA
         },
       },
@@ -376,7 +376,7 @@ export function InventoryTable() {
     }
   }
 
-  const handleDeleteItem = async (itemId: string) => {
+  const handleDeleteItem = async (itemId: number) => {
     try {
       await deleteItem(itemId)
       setItems(items.filter((item) => item.item_id !== itemId))
@@ -399,7 +399,7 @@ export function InventoryTable() {
     }
   }
 
-  const handleSelectItem = (itemId: string, isSelected: boolean) => {
+  const handleSelectItem = (itemId: number, isSelected: boolean) => {
     const newSelectedItems = new Set(selectedItems)
     if (isSelected) {
       newSelectedItems.add(itemId)

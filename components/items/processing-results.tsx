@@ -12,7 +12,7 @@ import { ArrowLeft, ExternalLink } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 
 type ProcessedItem = {
-  item_id: string
+  item_id: number
   auction_id?: string
   title: string
   description: string

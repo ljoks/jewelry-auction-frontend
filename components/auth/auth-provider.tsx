@@ -7,6 +7,9 @@ import { useRouter } from "next/navigation"
 import { Amplify } from "aws-amplify"
 import { signIn, signUp, confirmSignUp, signOut, getCurrentUser, fetchAuthSession } from "aws-amplify/auth"
 
+// Import the checkAdminStatus function at the top
+import { checkAdminStatus } from "@/lib/api"
+
 // Configure Amplify with v6+ format
 Amplify.configure({
   Auth: {
@@ -25,6 +28,7 @@ type AuthContextType = {
   user: any
   token: string | null
   isLoading: boolean
+  isAdmin: boolean
   login: (username: string, password: string) => Promise<void>
   signup: (username: string, password: string, email: string) => Promise<void>
   confirmSignup: (username: string, code: string) => Promise<void>
@@ -37,12 +41,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<any>(null)
   const [token, setToken] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [isAdmin, setIsAdmin] = useState(false)
   const router = useRouter()
 
   useEffect(() => {
     checkAuthState()
   }, [])
 
+  // Update the checkAuthState function to use the API endpoint
   async function checkAuthState() {
     try {
       setIsLoading(true)
@@ -56,19 +62,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Store token in cookie for server components
       if (idToken) {
         document.cookie = `auth_token=${idToken}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Strict`
+
+        // Check admin status using the API endpoint
+        const adminStatus = await checkAdminStatus()
+        setIsAdmin(adminStatus)
       }
     } catch (error) {
       setUser(null)
       setToken(null)
+      setIsAdmin(false)
       document.cookie = "auth_token=; path=/; max-age=0"
     } finally {
       setIsLoading(false)
     }
   }
 
+  // Update the login function to check admin status after login
   async function login(username: string, password: string) {
     try {
       setIsLoading(true)
+
+      // Check if there's already a signed in user
+      try {
+        const currentUser = await getCurrentUser()
+        if (currentUser) {
+          // User is already signed in, just navigate to dashboard
+          router.push("/dashboard")
+          return
+        }
+      } catch (error) {
+        // No user is signed in, continue with login
+      }
+
       await signIn({ username, password })
       const session = await fetchAuthSession()
       const idToken = session.tokens?.idToken?.toString()
@@ -80,6 +105,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Store token in cookie for server components
       if (idToken) {
         document.cookie = `auth_token=${idToken}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Strict`
+
+        // Check admin status using the API endpoint
+        const adminStatus = await checkAdminStatus()
+        setIsAdmin(adminStatus)
       }
 
       router.push("/dashboard")
@@ -132,6 +161,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await signOut()
       setUser(null)
       setToken(null)
+      setIsAdmin(false)
       document.cookie = "auth_token=; path=/; max-age=0"
       router.push("/")
     } catch (error) {
@@ -146,6 +176,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     user,
     token,
     isLoading,
+    isAdmin,
     login,
     signup,
     confirmSignup,

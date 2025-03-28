@@ -8,7 +8,7 @@ import { useToast } from "@/hooks/use-toast"
 import { Skeleton } from "@/components/ui/skeleton"
 
 type Item = {
-  item_id: string
+  item_id: number
   auction_id?: string
   marker_id: string
   title: string
@@ -24,7 +24,7 @@ type Item = {
   }
 }
 
-export function ItemDetails({ itemId }: { itemId: string }) {
+export function ItemDetails({ itemId }: { itemId: number }) {
   const [item, setItem] = useState<Item | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const { toast } = useToast()

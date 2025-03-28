@@ -149,7 +149,7 @@ export async function getItems(options?: {
   return fetchWithAuth(url)
 }
 
-export async function getItem(itemId: string) {
+export async function getItem(itemId: number) {
   return fetchWithAuth(`/items/${itemId}`)
 }
 
@@ -159,9 +159,6 @@ export async function createItem(data: {
   description?: string
   price?: number
 }) {
-  // Generate a unique item_id
-  const item_id = `item-${uuidv4()}`
-
   // Get current user information
   const currentUser = await fetchAuthSession()
   const username = currentUser.tokens?.idToken?.payload.username || "unknown-user"
@@ -169,7 +166,6 @@ export async function createItem(data: {
   return fetchWithAuth("/items", {
     method: "POST",
     body: JSON.stringify({
-      item_id,
       marker_id: data.marker_id || null,
       item_title: data.item_title,
       description: data.description || "",
@@ -180,7 +176,7 @@ export async function createItem(data: {
 }
 
 export async function updateItem(
-  itemId: string,
+  itemId: number,
   data: {
     title?: string
     description?: string
@@ -193,7 +189,7 @@ export async function updateItem(
   })
 }
 
-export async function deleteItem(itemId: string) {
+export async function deleteItem(itemId: number) {
   return fetchWithAuth(`/items/${itemId}`, {
     method: "DELETE",
   })
@@ -242,7 +238,7 @@ export async function stageItems(data: {
 
 export async function createItems(data: {
   items: Array<{
-    item_index: number
+    // item_index: number
     images: string[]
     title: string
     description: string
@@ -263,7 +259,7 @@ export async function createItems(data: {
 }
 
 // New function to associate items with an auction
-export async function addItemsToAuction(auctionId: string, itemIds: string[]) {
+export async function addItemsToAuction(auctionId: string, itemIds: number[]) {
   return fetchWithAuth(`/auctions/${auctionId}/items`, {
     method: "POST",
     body: JSON.stringify({ item_ids: itemIds }),
@@ -295,5 +291,115 @@ export async function processItems(data: any) {
     method: "POST",
     body: JSON.stringify(data),
   })
+}
+
+// Admin API functions
+export async function getUsers() {
+  return fetchWithAuth("/admin/users")
+}
+
+export async function getUser(userId: string) {
+  return fetchWithAuth(`/admin/users/${userId}`)
+}
+
+export async function updateUser(userId: string, data: { is_admin?: boolean }) {
+  return fetchWithAuth(`/admin/users/${userId}`, {
+    method: "PUT",
+    body: JSON.stringify(data),
+  })
+}
+
+export async function deleteUser(userId: string) {
+  return fetchWithAuth(`/admin/users/${userId}`, {
+    method: "DELETE",
+  })
+}
+
+export async function adminCreateAuction(data: {
+  name: string
+  start_date: string
+  end_date: string
+  created_by: string
+}) {
+  return fetchWithAuth("/admin/auctions", {
+    method: "POST",
+    body: JSON.stringify(data),
+  })
+}
+
+export async function adminUpdateAuction(
+  auctionId: string,
+  data: {
+    name?: string
+    start_date?: string
+    end_date?: string
+  },
+) {
+  return fetchWithAuth(`/admin/auctions/${auctionId}`, {
+    method: "PUT",
+    body: JSON.stringify(data),
+  })
+}
+
+export async function adminDeleteAuction(auctionId: string) {
+  return fetchWithAuth(`/admin/auctions/${auctionId}`, {
+    method: "DELETE",
+  })
+}
+
+export async function adminCreateItem(data: {
+  marker_id?: string | null
+  item_title: string
+  description?: string
+  price?: number
+  created_by: string
+}) {
+  return fetchWithAuth("/admin/items", {
+    method: "POST",
+    body: JSON.stringify(data),
+  })
+}
+
+export async function adminUpdateItem(
+  itemId: number,
+  data: {
+    title?: string
+    description?: string
+    metadata?: Record<string, any>
+  },
+) {
+  return fetchWithAuth(`/admin/items/${itemId}`, {
+    method: "PUT",
+    body: JSON.stringify(data),
+  })
+}
+
+export async function adminDeleteItem(itemId: number) {
+  return fetchWithAuth(`/admin/items/${itemId}`, {
+    method: "DELETE",
+  })
+}
+
+// Add this function to lib/api.ts
+export async function checkAdminStatus() {
+  try {
+    const token = await getAuthToken()
+
+    const response = await fetch(`${API_BASE_URL}/auth/check-admin`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    })
+
+    if (!response.ok) {
+      throw new Error("Failed to check admin status")
+    }
+
+    const data = await response.json()
+    return data.is_admin
+  } catch (error) {
+    console.error("Error checking admin status:", error)
+    return false
+  }
 }
 

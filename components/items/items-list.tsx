@@ -22,7 +22,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton"
 
 type Item = {
-  item_id: string
+  item_id: number
   auction_id?: string
   marker_id: string
   title: string
@@ -38,16 +38,6 @@ type Item = {
     max_value: number
     currency: string
   }
-}
-
-// Helper function to extract numeric part from item_id
-const extractNumericId = (itemId: string): number => {
-  // Assuming item_id format is like "item-123"
-  const matches = itemId.match(/\d+/)
-  if (matches && matches.length > 0) {
-    return Number.parseInt(matches[0], 10)
-  }
-  return 0 // Fallback if no number found
 }
 
 export function ItemsList({ auctionId }: { auctionId: string }) {
@@ -83,7 +73,7 @@ export function ItemsList({ auctionId }: { auctionId: string }) {
     }
   }
 
-  const handleDeleteItem = async (itemId: string) => {
+  const handleDeleteItem = async (itemId: number) => {
     try {
       await deleteItem(itemId)
       setItems(items.filter((item) => item.item_id !== itemId))
@@ -151,8 +141,8 @@ export function ItemsList({ auctionId }: { auctionId: string }) {
           <CardContent className="p-4">
             <div className="flex justify-between items-start gap-2">
               <div className="min-w-0 flex-1">
-                {/* Display numeric ID instead of full item_id */}
-                <p className="text-xs text-muted-foreground mb-1">ID: {extractNumericId(item.item_id)}</p>
+                {/* Display item_id directly as a number */}
+                <p className="text-xs text-muted-foreground mb-1">ID: {item.item_id}</p>
                 <p className="font-medium truncate">{item.title || `Item ${item.marker_id}`}</p>
                 <p className="text-sm text-muted-foreground truncate">
                   {item.description?.substring(0, 50) || "No description"}
