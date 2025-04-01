@@ -229,6 +229,7 @@ export async function stageItems(data: {
   views_per_item: number
   images: Array<{ s3Key: string; index: number }>
   metadata?: Record<string, any>
+  use_batch?: boolean
 }) {
   return fetchWithAuth("/processItems/stage", {
     method: "POST",
@@ -238,7 +239,7 @@ export async function stageItems(data: {
 
 export async function createItems(data: {
   items: Array<{
-    // item_index: number
+    item_index: number
     images: string[]
     title: string
     description: string
@@ -401,5 +402,46 @@ export async function checkAdminStatus() {
     console.error("Error checking admin status:", error)
     return false
   }
+}
+
+// Add these new functions to lib/api.ts
+
+// Batch API
+export async function getBatches(options?: {
+  limit?: number
+  after?: string | null
+}) {
+  let url = "/batches"
+  const queryParams = new URLSearchParams()
+
+  if (options) {
+    if (options.limit) {
+      queryParams.append("limit", options.limit.toString())
+    }
+    if (options.after) {
+      queryParams.append("after", options.after)
+    }
+  }
+
+  const queryString = queryParams.toString()
+  if (queryString) {
+    url += `?${queryString}`
+  }
+
+  return fetchWithAuth(url)
+}
+
+export async function getBatch(batchId: string) {
+  return fetchWithAuth(`/batches/${batchId}`)
+}
+
+export async function getBatchResults(batchId: string) {
+  return fetchWithAuth(`/batches/${batchId}/results`)
+}
+
+export async function cancelBatch(batchId: string) {
+  return fetchWithAuth(`/batches/${batchId}/cancel`, {
+    method: "POST",
+  })
 }
 

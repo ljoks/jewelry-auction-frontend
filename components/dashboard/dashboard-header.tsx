@@ -65,6 +65,16 @@ export function DashboardHeader() {
             >
               Inventory
             </Link>
+            <Link
+              href="/batches"
+              className={cn(
+                "text-sm font-medium hover:text-primary relative py-1",
+                isActive("/batches") &&
+                  "text-primary after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-primary",
+              )}
+            >
+              Batches
+            </Link>
             {isAdmin && (
               <Link
                 href="/admin"
@@ -98,6 +108,12 @@ export function DashboardHeader() {
                 <Link href="/inventory">
                   <Package className="mr-2 h-4 w-4" />
                   Inventory
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild className="md:hidden">
+                <Link href="/batches">
+                  <Package className="mr-2 h-4 w-4" />
+                  Batches
                 </Link>
               </DropdownMenuItem>
               {isAdmin && (

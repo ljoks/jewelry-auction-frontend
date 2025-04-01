@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { StagedItemsReview, type StagedItem } from "./staged-items-review"
+import { Switch } from "@/components/ui/switch"
 
 // Define types for uploaded images
 type UploadedImage = {
@@ -218,6 +219,8 @@ export function ImageUploader({ auctionId }: { auctionId?: string }) {
 
   // Staged items state
   const [stagedItems, setStagedItems] = useState<StagedItem[]>([])
+
+  const [useBatch, setUseBatch] = useState(false)
 
   const { toast } = useToast()
   const router = useRouter()
@@ -489,8 +492,6 @@ export function ImageUploader({ auctionId }: { auctionId?: string }) {
         metadata.length = length
       }
 
-      console.log(uploadedImagesList)
-
       // Stage items with the new API
       const response = await stageItems({
         num_items: numItems,
@@ -500,10 +501,33 @@ export function ImageUploader({ auctionId }: { auctionId?: string }) {
           index: img.index,
         })),
         metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
+        use_batch: useBatch, // Add this line
       })
 
       // Update progress
       setProgress(90)
+
+      // Handle batch processing differently
+      if (useBatch && response.batch_id) {
+        setStatusMessage("Batch processing started. Redirecting to batch status page...")
+
+        toast({
+          title: "Success",
+          description: "Batch processing started. You will be redirected to the batch status page.",
+        })
+
+        // Complete
+        setProgress(100)
+        setStatus("complete")
+
+        // Redirect to batch status page after a short delay
+        setTimeout(() => {
+          router.push(`/batches/${response.batch_id}`)
+        }, 1500)
+
+        return
+      }
+
       setStatusMessage("Processing complete. Preparing for review...")
 
       // Store the staged items
@@ -648,6 +672,17 @@ export function ImageUploader({ auctionId }: { auctionId?: string }) {
                   views).
                 </AlertDescription>
               </Alert>
+
+              <div className="flex items-center space-x-2 mt-4">
+                <Switch id="use-batch" checked={useBatch} onCheckedChange={setUseBatch} />
+                <Label htmlFor="use-batch">Use batch processing</Label>
+              </div>
+
+              <div className="text-sm text-muted-foreground mt-2">
+                {useBatch
+                  ? "Batch processing will run in the background and notify you when complete. This is recommended for large uploads."
+                  : "Real-time processing will process your images immediately. This is faster for small uploads."}
+              </div>
 
               <div className="flex justify-end">
                 <Button onClick={() => setActiveTab("capture")}>
