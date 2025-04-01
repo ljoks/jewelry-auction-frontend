@@ -203,8 +203,6 @@ export function ImageUploader({ auctionId }: { auctionId?: string }) {
   const [currentItem, setCurrentItem] = useState<number>(1)
 
   // Upload state
-  const [files, setFiles] = useState<File[]>([])
-  const [previews, setPreviews] = useState<string[]>([])
   const [uploadedImages, setUploadedImages] = useState<UploadedImage[]>([])
   const [status, setStatus] = useState<ProcessingStatus>("idle")
   const [progress, setProgress] = useState(0)
@@ -227,10 +225,20 @@ export function ImageUploader({ auctionId }: { auctionId?: string }) {
   // Calculate total expected images
   const totalExpectedImages = numItems * viewsPerItem
 
+  // Update the state to use a 2D array for files and previews
+  const [files, setFiles] = useState<File[][]>([])
+  const [previews, setPreviews] = useState<string[][]>([])
+
   // Calculate current image index based on capture mode
   const getCurrentImageIndex = () => {
-    // Calculate index based on item-first ordering
-    return (currentItem - 1) * viewsPerItem + currentView
+    // Calculate the total number of images captured before the current item
+    let totalPreviousImages = 0
+    for (let i = 0; i < currentItem - 1; i++) {
+      totalPreviousImages += files[i]?.length || 0
+    }
+
+    // Add the current view index
+    return totalPreviousImages + currentView
   }
 
   // Get current view type label
@@ -286,19 +294,60 @@ export function ImageUploader({ auctionId }: { auctionId?: string }) {
 
   const sizeField = getSizeField()
 
-  // Handle file drop
+  // Replace the onDrop function with this 2D array implementation
   const onDrop = useCallback(
     (acceptedFiles: File[]) => {
-      // Only accept files up to the remaining count
-      const remainingCount = totalExpectedImages - files.length
+      // Calculate how many more files we can accept
+      const totalCurrentFiles = files.flat().length
+      const remainingCount = totalExpectedImages - totalCurrentFiles
       const filesToAdd = acceptedFiles.slice(0, remainingCount)
 
-      // Create previews
-      const newPreviews = filesToAdd.map((file) => URL.createObjectURL(file))
-      setPreviews((prev) => [...prev, ...newPreviews])
-      setFiles((prev) => [...prev, ...filesToAdd])
+      if (filesToAdd.length === 0) return
+
+      // Create a copy of the current 2D arrays
+      const newFiles = [...files]
+      const newPreviews = [...previews]
+
+      // Initialize arrays for each item if they don't exist
+      for (let i = 0; i < numItems; i++) {
+        if (!newFiles[i]) newFiles[i] = []
+        if (!newPreviews[i]) newPreviews[i] = []
+      }
+
+      // Add files in round-robin fashion, one view per item at a time
+      let fileIndex = 0
+      let currentViewIndex = 0
+      let currentItemIndex = 0
+
+      // Find the next empty slot to start filling
+      if (totalCurrentFiles > 0) {
+        // Find the item with the fewest views
+        const itemLengths = newFiles.map((item) => item.length)
+        currentViewIndex = Math.min(...itemLengths)
+        currentItemIndex = itemLengths.indexOf(currentViewIndex)
+      }
+
+      while (fileIndex < filesToAdd.length && totalCurrentFiles + fileIndex < totalExpectedImages) {
+        // Add file to the current item's view
+        if (newFiles[currentItemIndex].length < viewsPerItem) {
+          newFiles[currentItemIndex].push(filesToAdd[fileIndex])
+          newPreviews[currentItemIndex].push(URL.createObjectURL(filesToAdd[fileIndex]))
+          fileIndex++
+        }
+
+        // Move to the next item
+        currentItemIndex = (currentItemIndex + 1) % numItems
+
+        // If we've gone through all items, move to the next view
+        if (currentItemIndex === 0) {
+          currentViewIndex++
+        }
+      }
+
+      setFiles(newFiles)
+      setPreviews(newPreviews)
     },
-    [files.length, totalExpectedImages],
+    [files, previews, numItems, viewsPerItem, totalExpectedImages],
   )
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -307,76 +356,69 @@ export function ImageUploader({ auctionId }: { auctionId?: string }) {
       "image/jpeg": [".jpeg", ".jpg"],
       "image/png": [".png"],
     },
-    disabled: files.length >= totalExpectedImages,
+    disabled: files.flat().length >= totalExpectedImages,
   })
 
-  // Remove a file
-  const removeFile = (index: number) => {
+  // Update the removeFile function to work with 2D arrays
+  const removeFile = (itemIndex: number, viewIndex: number) => {
     const newFiles = [...files]
     const newPreviews = [...previews]
 
     // Revoke the object URL to avoid memory leaks
-    URL.revokeObjectURL(newPreviews[index])
+    if (newPreviews[itemIndex] && newPreviews[itemIndex][viewIndex]) {
+      URL.revokeObjectURL(newPreviews[itemIndex][viewIndex])
+    }
 
-    newFiles.splice(index, 1)
-    newPreviews.splice(index, 1)
+    // Remove the file and preview
+    if (newFiles[itemIndex]) {
+      newFiles[itemIndex].splice(viewIndex, 1)
+    }
+
+    if (newPreviews[itemIndex]) {
+      newPreviews[itemIndex].splice(viewIndex, 1)
+    }
 
     setFiles(newFiles)
     setPreviews(newPreviews)
 
-    // Reset current view/item if we're at the end
-    if (currentItem > Math.ceil(newFiles.length / viewsPerItem)) {
-      setCurrentItem(Math.max(1, Math.ceil(newFiles.length / viewsPerItem)))
+    // Reset current view/item if needed
+    const totalFiles = newFiles.flat().length
+    if (totalFiles === 0) {
+      setCurrentItem(1)
       setCurrentView(0)
-    } else if (currentItem === Math.ceil(newFiles.length / viewsPerItem)) {
-      // If we're on the last item, make sure the view is valid
-      const remainingViewsInLastItem = newFiles.length % viewsPerItem || viewsPerItem
-      if (currentView >= remainingViewsInLastItem) {
-        setCurrentView(Math.max(0, remainingViewsInLastItem - 1))
+    } else {
+      // Adjust current item and view if necessary
+      const maxItem = Math.min(numItems, Math.ceil(totalFiles / viewsPerItem))
+      if (currentItem > maxItem) {
+        setCurrentItem(maxItem)
+        const itemViewCount = newFiles[maxItem - 1]?.length || 0
+        setCurrentView(Math.min(currentView, itemViewCount))
       }
     }
   }
 
   // Move to next view/item
   const moveToNext = () => {
-    if (currentView < viewsPerItem - 1) {
+    // Check if we can move to the next view in the current item
+    if (currentView < viewsPerItem - 1 && files[currentItem - 1] && currentView < files[currentItem - 1].length) {
       // Move to next view of same item
       setCurrentView(currentView + 1)
     } else {
       // Move to first view of next item
-      setCurrentView(0)
-      setCurrentItem(currentItem + 1)
-    }
-  }
-
-  // Check if we've captured all images
-  const allImagesCaptured = files.length === totalExpectedImages
-
-  // Add this helper function before the processAndUploadImages function
-  // This function reorders images by item instead of by view
-  const reorderImagesByItem = (files: File[], numItems: number, viewsPerItem: number) => {
-    const reorderedFiles: File[] = []
-
-    // For each item
-    for (let itemIndex = 0; itemIndex < numItems; itemIndex++) {
-      // For each view
-      for (let viewIndex = 0; viewIndex < viewsPerItem; viewIndex++) {
-        // Calculate the original index in the files array
-        // Original order is: view1-item1, view1-item2, view1-item3, view2-item1, etc.
-        const originalIndex = viewIndex * numItems + itemIndex
-
-        if (originalIndex < files.length) {
-          reorderedFiles.push(files[originalIndex])
-        }
+      if (currentItem < numItems) {
+        setCurrentView(0)
+        setCurrentItem(currentItem + 1)
       }
     }
-
-    return reorderedFiles
   }
 
-  // Update the processAndUploadImages function to use the reordering
+  // Update the allImagesCaptured check
+  const allImagesCaptured = files.flat().length === totalExpectedImages
+
+  // Update the processAndUploadImages function
   const processAndUploadImages = async () => {
-    if (files.length !== totalExpectedImages) {
+    const totalFiles = files.flat().length
+    if (totalFiles !== totalExpectedImages) {
       toast({
         title: "Error",
         description: `Please capture all ${totalExpectedImages} images before proceeding`,
@@ -392,42 +434,42 @@ export function ImageUploader({ auctionId }: { auctionId?: string }) {
       setCurrentFile(0)
       setStatusMessage("Preparing to upload images...")
 
-      // Reorder files by item instead of by view
-      const reorderedFiles = reorderImagesByItem(files, numItems, viewsPerItem)
-
       const uploadedImagesList: UploadedImage[] = []
+      let fileIndex = 0
 
-      // Upload each file
-      for (let i = 0; i < reorderedFiles.length; i++) {
-        const file = reorderedFiles[i]
-        setCurrentFile(i + 1)
-        setStatusMessage(`Uploading image ${i + 1} of ${reorderedFiles.length}: ${file.name}`)
+      // Upload each file, going through items first, then views
+      for (let itemIndex = 0; itemIndex < files.length; itemIndex++) {
+        const itemFiles = files[itemIndex]
 
-        // Get presigned URL
-        const { presignedUrl, s3Key } = await getImageUploadUrl(file.name, file.type)
+        for (let viewIndex = 0; viewIndex < itemFiles.length; viewIndex++) {
+          const file = itemFiles[viewIndex]
+          setCurrentFile(fileIndex + 1)
+          setStatusMessage(`Uploading image ${fileIndex + 1} of ${totalFiles}: ${file.name}`)
 
-        // Upload to S3
-        await uploadImageToS3(presignedUrl, file)
+          // Get presigned URL
+          const { presignedUrl, s3Key } = await getImageUploadUrl(file.name, file.type)
 
-        // Calculate the correct item and view indices
-        const itemIndex = Math.floor(i / viewsPerItem)
-        const viewIndex = i % viewsPerItem
+          // Upload to S3
+          await uploadImageToS3(presignedUrl, file)
 
-        // Create a view URL and add to uploaded images
-        uploadedImagesList.push({
-          s3Key,
-          viewUrl: URL.createObjectURL(file),
-          file,
-          index: i, // Store the original index
-        })
+          // Add to uploaded images
+          uploadedImagesList.push({
+            s3Key,
+            viewUrl: URL.createObjectURL(file),
+            file,
+            index: fileIndex, // Store the original index
+          })
 
-        // Update progress
-        setProgress(Math.round(((i + 1) / reorderedFiles.length) * 50)) // First 50% is for uploading
+          // Update progress
+          setProgress(Math.round(((fileIndex + 1) / totalFiles) * 50)) // First 50% is for uploading
+          fileIndex++
+        }
       }
 
       setUploadedImages(uploadedImagesList)
       setStatusMessage("All images uploaded successfully. Starting processing...")
 
+      // Rest of the function remains the same...
       // Start processing
       setStatus("processing")
       setStatusMessage("Processing images and generating descriptions...")
@@ -447,7 +489,9 @@ export function ImageUploader({ auctionId }: { auctionId?: string }) {
         metadata.length = length
       }
 
-      // Stage items with the new API - send images in the correct order
+      console.log(uploadedImagesList)
+
+      // Stage items with the new API
       const response = await stageItems({
         num_items: numItems,
         views_per_item: viewsPerItem,
@@ -631,20 +675,20 @@ export function ImageUploader({ auctionId }: { auctionId?: string }) {
                     Image {getCurrentImageIndex() + 1} of {totalExpectedImages}
                   </span>
                 </div>
-                <Progress value={(files.length / totalExpectedImages) * 100} className="h-2 mb-4" />
+                <Progress value={(files.flat().length / totalExpectedImages) * 100} className="h-2 mb-4" />
 
                 {/* Dropzone for current image */}
                 <div
                   {...getRootProps()}
                   className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
                     isDragActive ? "border-primary bg-primary/5" : "border-muted-foreground/20"
-                  } ${files.length >= totalExpectedImages ? "opacity-50 cursor-not-allowed" : ""}`}
+                  } ${files.flat().length >= totalExpectedImages ? "opacity-50 cursor-not-allowed" : ""}`}
                 >
                   <input {...getInputProps()} />
                   <div className="flex flex-col items-center justify-center gap-2">
                     <Camera className="h-10 w-10 text-muted-foreground" />
                     <h3 className="text-lg font-medium">
-                      {files.length >= totalExpectedImages
+                      {files.flat().length >= totalExpectedImages
                         ? "All images captured"
                         : "Drag & drop image here or click to select"}
                     </h3>
@@ -691,48 +735,39 @@ export function ImageUploader({ auctionId }: { auctionId?: string }) {
                 </div>
               </div>
 
-              {/* Preview of captured images */}
+              {/* Update the preview section to display images grouped by item */}
               {previews.length > 0 && (
                 <div>
                   <h3 className="text-lg font-medium mb-4">
-                    Captured Images ({previews.length}/{totalExpectedImages})
+                    Captured Images ({previews.flat().length}/{totalExpectedImages})
                   </h3>
                   <div className="space-y-6">
-                    {Array.from({ length: numItems }).map((_, itemIndex) => (
+                    {previews.map((itemPreviews, itemIndex) => (
                       <div key={itemIndex} className="border rounded-md p-4">
                         <h4 className="font-medium mb-2">Item {itemIndex + 1}</h4>
                         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                          {Array.from({ length: viewsPerItem }).map((_, viewIndex) => {
-                            // Calculate the index in the previews array
-                            // For item-first ordering: (itemIndex * viewsPerItem) + viewIndex
-                            const previewIndex = itemIndex * viewsPerItem + viewIndex
-
-                            if (previewIndex < previews.length) {
-                              return (
-                                <Card key={viewIndex} className="relative overflow-hidden group">
-                                  <div className="aspect-square relative">
-                                    <Image
-                                      src={previews[previewIndex] || "/placeholder.svg"}
-                                      alt={`Item ${itemIndex + 1}, View ${viewIndex + 1}`}
-                                      fill
-                                      className="object-cover"
-                                    />
-                                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                      <Button
-                                        variant="destructive"
-                                        size="icon"
-                                        onClick={() => removeFile(previewIndex)}
-                                      >
-                                        <Trash2 className="h-4 w-4" />
-                                      </Button>
-                                    </div>
-                                  </div>
-                                  <div className="p-2 text-xs text-center">{`View ${viewIndex + 1}`}</div>
-                                </Card>
-                              )
-                            }
-                            return null
-                          })}
+                          {itemPreviews.map((preview, viewIndex) => (
+                            <Card key={viewIndex} className="relative overflow-hidden group">
+                              <div className="aspect-square relative">
+                                <Image
+                                  src={preview || "/placeholder.svg"}
+                                  alt={`Item ${itemIndex + 1}, View ${viewIndex + 1}`}
+                                  fill
+                                  className="object-cover"
+                                />
+                                <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <Button
+                                    variant="destructive"
+                                    size="icon"
+                                    onClick={() => removeFile(itemIndex, viewIndex)}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </div>
+                              <div className="p-2 text-xs text-center">{`View ${viewIndex + 1}`}</div>
+                            </Card>
+                          ))}
                         </div>
                       </div>
                     ))}
@@ -744,7 +779,7 @@ export function ImageUploader({ auctionId }: { auctionId?: string }) {
                 <div className="mt-6 space-y-2">
                   <div className="flex justify-between items-center">
                     <span className="text-sm font-medium">
-                      {status === "uploading" && `Uploading (${currentFile}/${files.length})`}
+                      {status === "uploading" && `Uploading (${currentFile}/${files.flat().length})`}
                       {status === "processing" && "Processing"}
                       {status === "error" && "Error"}
                     </span>
