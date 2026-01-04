@@ -403,3 +403,19 @@ export async function checkAdminStatus() {
   }
 }
 
+// Metadata Options API functions
+export async function getMetadataOptions() {
+  return fetchWithAuth("/admin/metadata-options")
+}
+
+export async function updateMetadataOptions(data: {
+  lotTypes?: string[]
+  materials?: string[]
+  sizes?: Record<string, string[]> // lotType -> array of size strings
+}) {
+  return fetchWithAuth("/admin/metadata-options", {
+    method: "PUT",
+    body: JSON.stringify(data),
+  })
+}
+

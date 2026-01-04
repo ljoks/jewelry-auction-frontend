@@ -4,7 +4,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import { Users, LayoutDashboard, ShoppingBag, Package } from "lucide-react"
+import { Users, LayoutDashboard, ShoppingBag, Package, Settings } from "lucide-react"
 
 export function AdminSidebar() {
   const pathname = usePathname()
@@ -19,6 +19,11 @@ export function AdminSidebar() {
       name: "Users",
       href: "/admin/users",
       icon: <Users className="h-5 w-5 mr-2" />,
+    },
+    {
+      name: "Metadata Options",
+      href: "/admin/metadata-options",
+      icon: <Settings className="h-5 w-5 mr-2" />,
     },
     {
       name: "Auctions",
